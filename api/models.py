@@ -1,6 +1,24 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator
+from django.contrib.auth.models import BaseUserManager
+
+class HealthProviderUserManager(BaseUserManager):
+    def create_superuser(self, registration_number, password=None, **extra_fields):
+        """
+        Create and return a superuser with a registration number and password.
+        """
+        if not registration_number:
+            raise ValueError('The given registration number must be set')
+        
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        user = self.model(registration_number=registration_number, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
 
 class HealthProviderUser(AbstractUser):
     ROLE_CHOICES = [
@@ -29,6 +47,8 @@ class HealthProviderUser(AbstractUser):
 
     # Remove username as it's no longer the primary field
     username = None
+
+    objects = HealthProviderUserManager() 
 
     # Override related_name for groups and permissions to avoid conflicts
     groups = models.ManyToManyField(
