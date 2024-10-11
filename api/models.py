@@ -75,18 +75,26 @@ class HealthProviderUser(AbstractUser):
     def __str__(self):
         return f"{self.registration_number} - {self.get_role_display()}"
 
-# Course Model
+# Category Model (For course categorization)
+class Category(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
 
+    def __str__(self):
+        return self.name
+
+# Course Model (Now includes a foreign key to Category)
 class Course(models.Model):
     title = models.CharField(max_length=255)
-    description = models.TextField()  # Add description field
+    description = models.TextField()  # Description field
     instructor = models.ForeignKey('HealthProviderUser', related_name='courses', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)  # Add created_at for course
+    category = models.ForeignKey(Category, related_name='courses', on_delete=models.SET_NULL, null=True, blank=True)  # Add category field
 
     def __str__(self):
         return self.title
 
-
+# Lesson Model
 class Lesson(models.Model):
     title = models.CharField(max_length=255)
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE)

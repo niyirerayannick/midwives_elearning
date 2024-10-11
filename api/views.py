@@ -33,7 +33,8 @@ class RegistrationNumberAuthToken(GenericAPIView):
             user = User.objects.get(registration_number=registration_number)
         except User.DoesNotExist:
             return Response({
-                'error': 'Registration number does not exist. Please contact the admin to register.'
+                'status': False,
+                'message': 'Registration number does not exist. Please contact the admin to register.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(username=registration_number, password=password)
@@ -41,36 +42,106 @@ class RegistrationNumberAuthToken(GenericAPIView):
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
 
-            # If it's the first login (password is still the registration number)
-            if user.check_password(registration_number):
-                return Response({
-                    'token': token.key,
-                    'first_login': True,  # Indicate first-time login
-                })
+            # Prepare the user details with registration number
+            user_data = {
+                'id': user.id,
+                'registration_number': user.registration_number,  # Added registration number
+                'full_name': f"{user.first_name} {user.last_name}",
+                'email': user.email,
+                'telephone': user.telephone,
+                'role': user.get_role_display(),
+            }
 
-            return Response({
-                'token': token.key,
-                'first_login': False,
-            })
+            # Prepare the tokens
+            tokens = {
+                'access_token': token.key,
+                'refresh_token': token.key  # You can generate a refresh token if needed
+            }
 
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+            # Check if it's the first login
+            first_login = user.check_password(registration_number)
 
-# Change password after first login
+            response_data = {
+                'status': True,
+                'message': 'Login successfully.',
+                'data': {
+                    'user': user_data,
+                    'tokens': tokens
+                }
+            }
+
+            # Indicate first login in the response if necessary
+            if first_login:
+                response_data['first_login'] = True
+
+            return Response(response_data)
+
+        return Response({
+            'status': False,
+            'message': 'Invalid credentials'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
 class ChangePasswordView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChangePasswordSerializer
 
     def post(self, request, *args, **kwargs):
-        user = request.user
+        # Extract user_id from request data
+        user_id = request.data.get('user_id')
+
+        if not user_id:
+            return Response({
+                'status': False,
+                'message': 'User ID is required.',
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'status': False,
+                'message': 'User not found.',
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the requesting user is the same as the user_id or an admin
+        # if user != request.user and not request.user.is_staff:
+        #     return Response({
+        #         'status': False,
+        #         'message': 'You do not have permission to change this user\'s password.',
+        #     }, status=status.HTTP_403_FORBIDDEN)
+
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
             new_password = serializer.validated_data.get('new_password')
             user.set_password(new_password)
             user.save()
-            return Response({'message': 'Password changed successfully'})
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Prepare the user details for the response
+            user_data = {
+                'id': user.id,
+                'full_name': f"{user.first_name} {user.last_name}",
+                'email': user.email,
+                'telephone': user.telephone,
+                'role': user.get_role_display(),
+                'registration_number': user.registration_number
+            }
+
+            response_data = {
+                'status': True,
+                'message': 'Password changed successfully.',
+                'data': {
+                    'user': user_data,
+                }
+            }
+
+            return Response(response_data)
+
+        return Response({
+            'status': False,
+            'message': 'Invalid data provided.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 # Course Views
 class CourseListView(ListAPIView):
