@@ -13,8 +13,8 @@ schema_view = get_schema_view(
       contact=openapi.Contact(email="contact@fcmc.muberarugo.org"),
       license=openapi.License(name="BSD License"),
    ),
-   public=True,
-   permission_classes=(permissions.AllowAny,),
+    public=True,
+   permission_classes=(permissions.AllowAny,), 
 )
 
 urlpatterns = [
