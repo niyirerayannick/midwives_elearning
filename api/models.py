@@ -89,6 +89,7 @@ class Course(models.Model):
     description = models.TextField()  # Description field
     instructor = models.ForeignKey('HealthProviderUser', related_name='courses', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)  # Add created_at for course
+    course_image = models.ImageField(upload_to='course_images/', null=True, blank=True)
     category = models.ForeignKey(Category, related_name='courses', on_delete=models.SET_NULL, null=True, blank=True)  # Add category field
 
     def __str__(self):

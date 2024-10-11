@@ -42,11 +42,8 @@ urlpatterns = [
 
     # Enrollment
     path('enroll/', EnrollmentView.as_view(), name='enrollment'),
-
-    # Progress
-    path('courses/<int:course_id>/progress/', ProgressView.as_view(), name='course-progress'),
-
-    # Notifications
+    # path('courses/<int:course_id>/progress/', ProgressView.as_view(), name='course-progress'),
+    path('courses/progress/<int:user_id>/<int:course_id>/', ProgressView.as_view(), name='user-progress'),
     path('notifications/', NotificationView.as_view(), name='notification-list'),
 
     # Quiz-related endpoints (uncomment if needed)

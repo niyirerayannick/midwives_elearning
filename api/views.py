@@ -103,13 +103,6 @@ class ChangePasswordView(GenericAPIView):
                 'message': 'User not found.',
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the requesting user is the same as the user_id or an admin
-        # if user != request.user and not request.user.is_staff:
-        #     return Response({
-        #         'status': False,
-        #         'message': 'You do not have permission to change this user\'s password.',
-        #     }, status=status.HTTP_403_FORBIDDEN)
-
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():

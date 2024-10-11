@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
-from .models import HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
+from .models import Category, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
 
 User = get_user_model()
 
@@ -76,16 +76,27 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         return user
 # Course Serializer
-class CourseSerializer(serializers.ModelSerializer):
+
+class InstructorSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
     class Meta:
-        model = Course
-        fields = ['id', 'title', 'description', 'instructor', 'created_at']
+        model = HealthProviderUser
+        fields = ['id', 'full_name', 'registration_number', 'email', 'telephone']
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
+# Category Serializer
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description']
 
 # Lesson Serializer
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ['id', 'course', 'title', 'video_url', 'content', 'pdf_file']
+        fields = ['id', 'title', 'video_url', 'content', 'pdf_file', 'created_at']
 
 # Quiz Serializer
 class QuizSerializer(serializers.ModelSerializer):
@@ -119,9 +130,13 @@ class CertificateSerializer(serializers.ModelSerializer):
 
 # Enrollment Serializer
 class EnrollmentSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id')
+    user_email = serializers.EmailField(source='user.email')
+    user_name = serializers.CharField(source='user.get_full_name')
+
     class Meta:
         model = Enrollment
-        fields = ['id', 'user', 'course', 'date_enrolled']
+        fields = ['id', 'user_id', 'user_email', 'user_name', 'course', 'date_enrolled']
 
 # Progress Serializer
 class ProgressSerializer(serializers.ModelSerializer):
@@ -134,3 +149,16 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'user', 'message', 'created_at', 'is_read']
+
+# Course Serializer
+class CourseSerializer(serializers.ModelSerializer):
+    category = CategorySerializer()  # Nested Category
+    lessons = LessonSerializer(many=True)  # Nested lessons (chapters)
+    enrollments = EnrollmentSerializer(many=True)  # Nested enrollments
+    instructor = InstructorSerializer()
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'title', 'description', 'course_image', 'created_at', 'category',
+            'lessons', 'instructor', 'enrollments'
+        ]
