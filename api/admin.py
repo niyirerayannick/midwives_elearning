@@ -2,12 +2,15 @@ from django.contrib.auth.admin import UserAdmin
 from .models import HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
 from django.contrib import admin
 
-# HealthProviderUserAdmin
+
 class HealthProviderUserAdmin(UserAdmin):
     model = HealthProviderUser
 
     # Fields to display in the admin list view
-    list_display = ('registration_number', 'first_name', 'last_name', 'email', 'role', 'is_staff', 'is_active')
+    list_display = (
+        'registration_number', 'first_name', 'last_name', 'email', 
+        'telephone', 'date_of_birth', 'role', 'is_staff', 'is_active'
+    )
 
     # Fields to use for search
     search_fields = ('registration_number', 'first_name', 'last_name', 'email')
@@ -15,9 +18,9 @@ class HealthProviderUserAdmin(UserAdmin):
     # Filters for role and staff status
     list_filter = ('role', 'is_staff', 'is_active')
 
-    # Fields to display in the form when adding/editing users
+    # Display all fields in the form when adding/editing users
     fieldsets = (
-        (None, {'fields': ('username', 'password')}),
+        (None, {'fields': ('password',)}),  # No username field as per model
         ('Personal Info', {'fields': ('first_name', 'last_name', 'email', 'telephone', 'date_of_birth')}),
         ('Role Info', {'fields': ('role', 'registration_number')}),  # registration_number added here
         ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
@@ -28,7 +31,7 @@ class HealthProviderUserAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2', 'first_name', 'last_name', 'email', 'role', 'registration_number'),
+            'fields': ('password1', 'password2', 'first_name', 'last_name', 'email', 'telephone', 'date_of_birth', 'role', 'registration_number'),
         }),
     )
 
@@ -36,6 +39,7 @@ class HealthProviderUserAdmin(UserAdmin):
 
 # Register the custom user model with the admin
 admin.site.register(HealthProviderUser, HealthProviderUserAdmin)
+
 
 
 # Register the Course model
