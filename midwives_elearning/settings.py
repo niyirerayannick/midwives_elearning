@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.common.BrokenLinkEmailsMiddleware', 
 ]
 
 ROOT_URLCONF = 'midwives_elearning.urls'
@@ -122,16 +123,16 @@ USE_TZ = True
 
 # Directory where Django will look for additional static files, aside from each app's 'static' directory
 STATICFILES_DIRS = (
-     os.path.join(BASE_DIR, 'assets'),  # Change this to a different folder from STATIC_ROOT
-    # os.path.join(BASE_DIR, 'static'),
+    #  os.path.join(BASE_DIR, 'assets'),  # Change this to a different folder from STATIC_ROOT
+     os.path.join(BASE_DIR, 'static'),
 )
 
 # URL to use when referring to static files located in STATIC_ROOT
 STATIC_URL = '/static/'
 
 # Directory where the static files will be collected to
-STATIC_ROOT = '/var/www/midwives_elearning/static/'
-#STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Good for production
+# STATIC_ROOT = '/var/www/midwives_elearning/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Good for production
 
 # Media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

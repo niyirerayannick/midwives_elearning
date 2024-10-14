@@ -20,13 +20,14 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Override the create method to handle password setting logic.
+        Create a new user, ensuring the password is hashed.
         """
         user = super().create(validated_data)
         if 'password' in validated_data:
-            user.set_password(validated_data['password'])  # Ensure the password is hashed
+            user.set_password(validated_data['password'])  # Hash the password
         user.save()
         return user
+
 
 class LoginSerializer(serializers.Serializer):
     registration_number = serializers.CharField(
@@ -38,14 +39,15 @@ class LoginSerializer(serializers.Serializer):
     )
     password = serializers.CharField(required=True)
 
+
 class ChangePasswordSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField(required=True)  # Added user_id to identify the user
+    user_id = serializers.IntegerField(required=True)
     new_password = serializers.CharField(required=True, write_only=True)
     confirm_password = serializers.CharField(required=True, write_only=True)
 
     def validate(self, data):
         """
-        Custom validation to check if the new_password and confirm_password match.
+        Ensure the new password and confirmation match.
         """
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("The new password and confirmation password do not match.")
@@ -53,7 +55,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def save(self):
         """
-        Change the password for the user identified by user_id.
+        Change the password for the identified user.
         """
         user_id = self.validated_data['user_id']
         new_password = self.validated_data['new_password']
@@ -63,19 +65,17 @@ class ChangePasswordSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("User not found.")
 
-        # Ensure that the password is only changed for the correct user (the logged-in user or an admin)
         request_user = self.context['request'].user
 
-        # Allow password change if the logged-in user is the same as the user_id or an admin
+        # Check permissions
         if user != request_user and not request_user.is_staff:
             raise serializers.ValidationError("You do not have permission to change this user's password.")
 
         # Change the password
         user.set_password(new_password)
         user.save()
-
         return user
-# Course Serializer
+
 
 class InstructorSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
@@ -85,88 +85,98 @@ class InstructorSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'registration_number', 'email', 'telephone']
 
     def get_full_name(self, obj):
+        """
+        Return the full name of the instructor.
+        """
         return f"{obj.first_name} {obj.last_name}"
-# Category Serializer
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description']
-class CourseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Course
-        fields = ['id', 'title', 'description', 'created_at', 'course_image']
-# Lesson Serializer
+
+
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ['id', 'title', 'video_url', 'content', 'pdf_file', 'created_at']
 
-# Quiz Serializer
+
 class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks']
 
-# Question Serializer
+
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'quiz', 'text', 'is_multiple_choice']
 
-# Answer Serializer
+
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
         fields = ['id', 'question', 'text', 'is_correct']
 
-# Exam Serializer
+
 class ExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = ['id', 'course', 'title', 'total_marks']
 
-# Certificate Serializer
+
 class CertificateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Certificate
         fields = ['id', 'user', 'course', 'date_issued', 'certificate_file']
 
-# Enrollment Serializer
+
 class EnrollmentSerializer(serializers.ModelSerializer):
-    # Extract specific fields from the related User model
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-
-    # Include course details using CourseSerializer without source argument
-    course = CourseSerializer(read_only=True)  # No need for source='course'
+    course = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Enrollment
         fields = ['id', 'user_id', 'user_email', 'user_name', 'course', 'date_enrolled']
 
-# Progress Serializer
+    def create(self, validated_data):
+        """
+        Create a new enrollment while handling errors appropriately.
+        """
+        try:
+            enrollment = Enrollment.objects.create(**validated_data)
+        except Exception as e:
+            raise serializers.ValidationError(f"Error creating enrollment: {str(e)}")
+        return enrollment
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    category = CategorySerializer()  # Nested Category
+    lessons = LessonSerializer(many=True)  # Nested lessons
+    enrollments = EnrollmentSerializer(many=True)  # Nested enrollments
+    instructor = InstructorSerializer()  # Nested Instructor
+
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'title', 'description', 'course_image', 'created_at',
+            'category', 'lessons', 'instructor', 'enrollments'
+        ]
+
+
 class ProgressSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
 
     class Meta:
         model = Progress
         fields = ['id', 'user_name', 'course', 'completed_lessons', 'total_lessons']
-# Notification Serializer
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'user', 'message', 'created_at', 'is_read']
-
-# Course Serializer
-class CourseSerializer(serializers.ModelSerializer):
-    category = CategorySerializer()  # Nested Category
-    lessons = LessonSerializer(many=True)  # Nested lessons (chapters)
-    enrollments = EnrollmentSerializer(many=True)  # Nested enrollments
-    instructor = InstructorSerializer()
-    class Meta:
-        model = Course
-        fields = [
-            'id', 'title', 'description', 'course_image', 'created_at', 'category',
-            'lessons', 'instructor', 'enrollments'
-        ]
