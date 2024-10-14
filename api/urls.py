@@ -1,15 +1,17 @@
 from django.urls import path
 from .views import (
     ChangePasswordView,
+    CompleteLessonAPIView,
     CourseCreateView,
     CourseDeleteView,
+    CourseEnrollAPIView,
     CourseUpdateView,
+    CourseEnrollAPIView,
     RegistrationNumberAuthToken,
     AdminUserCreateView,
     CourseListView,
     CourseDetailView,
     LessonListView,
-    EnrollmentView,
     ProgressView,
     NotificationView,
     LessonCreateView,  # Uncommented if needed
@@ -18,7 +20,10 @@ from .views import (
     QuizListView,     # Uncommented if needed
     QuizCreateView,   # Uncommented if needed
     QuizUpdateView,   # Uncommented if needed
-    QuizDeleteView    # Uncommented if needed
+    QuizDeleteView,
+    UserEnrolledCoursesAPIView,
+    UserProgressAPIView    # Uncommented if needed
+
 )
 
 urlpatterns = [
@@ -33,6 +38,10 @@ urlpatterns = [
     path('courses/create/', CourseCreateView.as_view(), name='course-create'),
     path('courses/<int:pk>/update/', CourseUpdateView.as_view(), name='course-update'),
     path('courses/<int:pk>/delete/', CourseDeleteView.as_view(), name='course-delete'),
+    path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
+    path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
+    path('courses/<int:course_id>/lessons/<int:lesson_id>/complete/', CompleteLessonAPIView.as_view(), name='complete-lesson'),
+    path('courses/users/<int:user_id>/progress/<int:course_id>/', UserProgressAPIView.as_view(), name='user-progress'),
 
     # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
@@ -40,8 +49,6 @@ urlpatterns = [
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
 
-    # Enrollment
-    path('enroll/', EnrollmentView.as_view(), name='enrollment'),
     # path('courses/<int:course_id>/progress/', ProgressView.as_view(), name='course-progress'),
     path('courses/progress/<int:user_id>/<int:course_id>/', ProgressView.as_view(), name='user-progress'),
     path('notifications/', NotificationView.as_view(), name='notification-list'),

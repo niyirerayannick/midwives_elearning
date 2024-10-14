@@ -171,6 +171,11 @@ class Progress(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s progress in {self.course.title}"
+    
+    def update_progress(self):
+        """Increment the completed lessons count."""
+        self.completed_lessons += 1
+        self.save()
 
 # Notification Model (For user notifications, such as course updates, certificates)
 class Notification(models.Model):

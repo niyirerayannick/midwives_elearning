@@ -91,7 +91,10 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description']
-
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'title', 'description', 'created_at', 'course_image']
 # Lesson Serializer
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
@@ -130,9 +133,13 @@ class CertificateSerializer(serializers.ModelSerializer):
 
 # Enrollment Serializer
 class EnrollmentSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(source='user.id')
-    user_email = serializers.EmailField(source='user.email')
-    user_name = serializers.CharField(source='user.get_full_name')
+    # Extract specific fields from the related User model
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+
+    # Include course details using CourseSerializer without source argument
+    course = CourseSerializer(read_only=True)  # No need for source='course'
 
     class Meta:
         model = Enrollment
@@ -140,10 +147,11 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
 # Progress Serializer
 class ProgressSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+
     class Meta:
         model = Progress
-        fields = ['id', 'user', 'course', 'completed_lessons', 'total_lessons']
-
+        fields = ['id', 'user_name', 'course', 'completed_lessons', 'total_lessons']
 # Notification Serializer
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

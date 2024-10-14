@@ -4,6 +4,7 @@ from rest_framework.generics import GenericAPIView, ListAPIView, CreateAPIView, 
 from rest_framework.mixins import CreateModelMixin
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
+from rest_framework import generics
 from django.contrib.auth import get_user_model
 from .models import HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
 from .serializers import UserSerializer, CourseSerializer, LessonSerializer, QuizSerializer, QuestionSerializer, AnswerSerializer, ExamSerializer, CertificateSerializer, EnrollmentSerializer, ProgressSerializer, NotificationSerializer
@@ -267,20 +268,96 @@ class AnswerUpdateView(UpdateAPIView):
 class AnswerDeleteView(DestroyAPIView):
     queryset = Answer.objects.all()
     serializer_class = AnswerSerializer
+User = get_user_model()
 
-# Enrollment View
-class EnrollmentView(GenericAPIView):
-    # permission_classes = [permissions.IsAuthenticated]
+class CourseEnrollAPIView(generics.CreateAPIView):
+    queryset = Enrollment.objects.all()
     serializer_class = EnrollmentSerializer
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        course_id = self.kwargs.get('course_id')  # Extract course_id from URL
+        user_id = request.data.get('user_id')     # Extract user_id from request data
 
+        if not user_id:
+            return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the user exists
+        try:
+            user = HealthProviderUser.objects.get(id=user_id)
+        except HealthProviderUser.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the course exists
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the user is already enrolled in the course
+        if Enrollment.objects.filter(user=user, course=course).exists():
+            return Response({"error": "User is already enrolled in this course"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the new enrollment
+        enrollment = Enrollment.objects.create(user=user, course=course)
+
+        # Serialize and return the created enrollment
+        serializer = self.get_serializer(enrollment)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+# Enrollment View
+class UserEnrolledCoursesAPIView(generics.ListAPIView):
+    serializer_class = EnrollmentSerializer
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')  # Get user_id from URL
+        return Enrollment.objects.filter(user_id=user_id)
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+    
 # Progress View
+class CompleteLessonAPIView(generics.UpdateAPIView):
+    def post(self, request, course_id, lesson_id):
+        user = request.user  # Assuming the user is authenticated
+        try:
+            progress = Progress.objects.get(user=user, course_id=course_id)
+            lesson = Lesson.objects.get(id=lesson_id)
+
+            if lesson.course.id != course_id:
+                return Response({'error': 'Lesson does not belong to the specified course'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Increment completed lessons
+            progress.update_progress()
+
+            return Response({
+                'message': 'Lesson completed successfully',
+                'completed_lessons': progress.completed_lessons,
+                'total_lessons': progress.total_lessons
+            }, status=status.HTTP_200_OK)
+        except Progress.DoesNotExist:
+            return Response({'error': 'Progress record not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class UserProgressAPIView(generics.RetrieveAPIView):
+    serializer_class = ProgressSerializer
+    # permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # This will allow any authenticated user to access progress data
+        return Progress.objects.all()
+
+    def get(self, request, user_id, course_id, *args, **kwargs):
+        # Retrieve the progress for the specified user and course
+        progress = self.get_queryset().filter(user_id=user_id, course_id=course_id).first()
+
+        if progress:
+            return Response(self.get_serializer(progress).data)
+        return Response({'error': 'Progress not found for this course'}, status=status.HTTP_404_NOT_FOUND)
+    
+class get_progress(GenericAPIView):
+    querset = Progress.objects.all()
+    serializer_class = ProgressSerializer
+
 class ProgressView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]  # Ensure only authenticated users can access this view
     serializer_class = ProgressSerializer
