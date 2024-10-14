@@ -28,7 +28,6 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-
 class LoginSerializer(serializers.Serializer):
     registration_number = serializers.CharField(
         required=True,
@@ -38,7 +37,6 @@ class LoginSerializer(serializers.Serializer):
         )]
     )
     password = serializers.CharField(required=True)
-
 
 class ChangePasswordSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
@@ -76,12 +74,11 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.save()
         return user
 
-
 class InstructorSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
 
     class Meta:
-        model = HealthProviderUser
+        model = HealthProviderUser  # Ensure this points to your actual instructor model
         fields = ['id', 'full_name', 'registration_number', 'email', 'telephone']
 
     def get_full_name(self, obj):
@@ -90,58 +87,56 @@ class InstructorSerializer(serializers.ModelSerializer):
         """
         return f"{obj.first_name} {obj.last_name}"
 
-
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description']
-
 
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ['id', 'title', 'video_url', 'content', 'pdf_file', 'created_at']
 
-
 class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks']
-
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'quiz', 'text', 'is_multiple_choice']
 
-
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
         fields = ['id', 'question', 'text', 'is_correct']
-
 
 class ExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = ['id', 'course', 'title', 'total_marks']
 
-
 class CertificateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Certificate
         fields = ['id', 'user', 'course', 'date_issued', 'certificate_file']
 
+class CourseBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course  # Assuming this is your course model
+        fields = [
+            'id', 'title', 'description', 'course_image', 'created_at',
+            'category', 'lessons', 'instructor', 'enrollments'
+        ]
 
 class EnrollmentSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(source='user.id', read_only=True)
-    user_email = serializers.EmailField(source='user.email', read_only=True)
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    course = serializers.PrimaryKeyRelatedField(read_only=True)
+    user = UserSerializer(read_only=True)  # Nested UserSerializer
+    course = CourseBasicSerializer(read_only=True)  # Use CourseSerializer to get full course details
 
     class Meta:
         model = Enrollment
-        fields = ['id', 'user_id', 'user_email', 'user_name', 'course', 'date_enrolled']
+        fields = ['id', 'user', 'course', 'date_enrolled']  # Include user, course, and date_enrolled
 
     def create(self, validated_data):
         """
@@ -152,12 +147,11 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise serializers.ValidationError(f"Error creating enrollment: {str(e)}")
         return enrollment
-
-
+   
 class CourseSerializer(serializers.ModelSerializer):
     category = CategorySerializer()  # Nested Category
-    lessons = LessonSerializer(many=True)  # Nested lessons
-    enrollments = EnrollmentSerializer(many=True)  # Nested enrollments
+    lessons = LessonSerializer(many=True)  # Nested Lessons
+    enrollments = serializers.SerializerMethodField()  # Use SerializerMethodField for enrollments
     instructor = InstructorSerializer()  # Nested Instructor
 
     class Meta:
@@ -167,6 +161,12 @@ class CourseSerializer(serializers.ModelSerializer):
             'category', 'lessons', 'instructor', 'enrollments'
         ]
 
+    def get_enrollments(self, obj):
+        """
+        Method to retrieve enrollments for the course.
+        """
+        enrollments = Enrollment.objects.filter(course=obj)
+        return EnrollmentSerializer(enrollments, many=True).data
 
 class ProgressSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -174,7 +174,6 @@ class ProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Progress
         fields = ['id', 'user_name', 'course', 'completed_lessons', 'total_lessons']
-
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

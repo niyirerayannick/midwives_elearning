@@ -309,7 +309,7 @@ class UserEnrolledCoursesAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')  # Get user_id from URL
-        return Enrollment.objects.filter(user_id=user_id)
+        return Enrollment.objects.filter(user_id=user_id).select_related('course', 'user')  # Optimize query
 
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -354,9 +354,6 @@ class UserProgressAPIView(generics.RetrieveAPIView):
             return Response(self.get_serializer(progress).data)
         return Response({'error': 'Progress not found for this course'}, status=status.HTTP_404_NOT_FOUND)
     
-class get_progress(GenericAPIView):
-    querset = Progress.objects.all()
-    serializer_class = ProgressSerializer
 
 class ProgressView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]  # Ensure only authenticated users can access this view
