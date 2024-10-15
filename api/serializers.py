@@ -131,21 +131,24 @@ class CourseBasicSerializer(serializers.ModelSerializer):
         ]
 
 class EnrollmentSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)  # Nested UserSerializer
-    course = CourseBasicSerializer(read_only=True)  # Use CourseSerializer to get full course details
+    # These will be used for both input (IDs) and output (nested data)
+    user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='user')
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
 
     class Meta:
         model = Enrollment
-        fields = ['id', 'user', 'course', 'date_enrolled']  # Include user, course, and date_enrolled
+        fields = ['id', 'user_id', 'course', 'date_enrolled']  # Include user_id, course, and date_enrolled
 
     def create(self, validated_data):
         """
-        Create a new enrollment while handling errors appropriately.
+        Create a new enrollment.
         """
-        try:
-            enrollment = Enrollment.objects.create(**validated_data)
-        except Exception as e:
-            raise serializers.ValidationError(f"Error creating enrollment: {str(e)}")
+        # Extract user and course from validated_data (they are passed as objects from PrimaryKeyRelatedField)
+        user = validated_data.get('user')
+        course = validated_data.get('course')
+
+        # Create the enrollment object
+        enrollment = Enrollment.objects.create(user=user, course=course)
         return enrollment
    
 class CourseSerializer(serializers.ModelSerializer):
