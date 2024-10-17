@@ -6,8 +6,13 @@ from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from django.contrib.auth import get_user_model
-from .models import HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
-from .serializers import UserSerializer, CourseSerializer, LessonSerializer, QuizSerializer, QuestionSerializer, AnswerSerializer, ExamSerializer, CertificateSerializer, EnrollmentSerializer, ProgressSerializer, NotificationSerializer
+from .models import (HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
+                     Exam, Certificate, Enrollment, Progress, Notification)
+
+from .serializers import (AnswerSerializer, CourseProgressSerializer, EnrollmentSerializer, 
+                          NotificationSerializer, QuizDetailSerializer, TakeQuizSerializer,  
+                          UserSerializer, CourseSerializer, LessonSerializer,
+                           QuizSerializer,QuestionSerializer)
 from api.serializers import ChangePasswordSerializer, LoginSerializer
 
 User = get_user_model()
@@ -211,7 +216,10 @@ class QuizListView(GenericAPIView):
         return Response(serializer.data)
     
     
-
+class QuizDetailView(generics.RetrieveAPIView):
+    queryset = Quiz.objects.all()
+    serializer_class = QuizDetailSerializer
+    
 class QuizCreateView(CreateAPIView):
     queryset = Quiz.objects.all()
     serializer_class = QuizSerializer
@@ -338,41 +346,58 @@ class CompleteLessonAPIView(generics.UpdateAPIView):
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
 
-class UserProgressAPIView(generics.RetrieveAPIView):
-    serializer_class = ProgressSerializer
-    # permission_classes = [IsAuthenticated]
+class CourseProgressView(generics.UpdateAPIView):
+    serializer_class = CourseProgressSerializer
 
-    def get_queryset(self):
-        # This will allow any authenticated user to access progress data
-        return Progress.objects.all()
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    def get(self, request, user_id, course_id, *args, **kwargs):
-        # Retrieve the progress for the specified user and course
-        progress = self.get_queryset().filter(user_id=user_id, course_id=course_id).first()
+        user_id = serializer.validated_data['user_id']
+        course_id = kwargs['course_id']
 
-        if progress:
-            return Response(self.get_serializer(progress).data)
-        return Response({'error': 'Progress not found for this course'}, status=status.HTTP_404_NOT_FOUND)
-    
+        # Check if the user has progress for the course
+        progress, created = Progress.objects.get_or_create(
+            user_id=user_id,
+            course_id=course_id,
+            defaults={'total_lessons': Lesson.objects.filter(course_id=course_id).count()}
+        )
 
-class ProgressView(GenericAPIView):
-    # permission_classes = [permissions.IsAuthenticated]  # Ensure only authenticated users can access this view
-    serializer_class = ProgressSerializer
+        item_type = serializer.validated_data['type']
+        item_id = serializer.validated_data['item_id']
 
-    def get(self, request, course_id, *args, **kwargs):
-        # Check if the user is authenticated
-        if request.user.is_authenticated:
-            # Fetch the progress for the authenticated user and course_id
-            progress = Progress.objects.filter(user=request.user, course_id=course_id).first()
+        # Update progress for the specified user and course
+        progress.update_progress(item_type, item_id)
+        return Response({'message': f'{item_type.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
 
-            if progress:
-                serializer = ProgressSerializer(progress)
-                return Response(serializer.data)
-            return Response({'error': 'Progress not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # If the user is not authenticated
-        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
+class TakeQuizAPIView(generics.CreateAPIView):
+    serializer_class = TakeQuizSerializer
+
+    def post(self, request, *args, **kwargs):
+        quiz_id = self.kwargs.get('quiz_id')
+        user_id = request.data.get('user_id')
+
+        if not user_id:
+            return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            quiz = Quiz.objects.get(id=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response({"error": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Pass the user and quiz to the serializer
+        serializer = self.get_serializer(data=request.data, context={'request': request, 'quiz': quiz, 'user': user})
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        return Response(result, status=status.HTTP_201_CREATED)
+  
 # Notification View
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]

@@ -5,14 +5,15 @@ from .views import (
     CourseCreateView,
     CourseDeleteView,
     CourseEnrollAPIView,
+    CourseProgressView,
     CourseUpdateView,
     CourseEnrollAPIView,
+    QuizDetailView,
     RegistrationNumberAuthToken,
     AdminUserCreateView,
     CourseListView,
     CourseDetailView,
     LessonListView,
-    ProgressView,
     NotificationView,
     LessonCreateView,  # Uncommented if needed
     LessonUpdateView,  # Uncommented if needed
@@ -21,9 +22,8 @@ from .views import (
     QuizCreateView,   # Uncommented if needed
     QuizUpdateView,   # Uncommented if needed
     QuizDeleteView,
+    TakeQuizAPIView,
     UserEnrolledCoursesAPIView,
-    UserProgressAPIView    # Uncommented if needed
-
 )
 
 urlpatterns = [
@@ -40,22 +40,21 @@ urlpatterns = [
     path('courses/<int:pk>/delete/', CourseDeleteView.as_view(), name='course-delete'),
     path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
     path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
-    path('courses/<int:course_id>/lessons/<int:lesson_id>/complete/', CompleteLessonAPIView.as_view(), name='complete-lesson'),
-    path('courses/users/<int:user_id>/progress/<int:course_id>/', UserProgressAPIView.as_view(), name='user-progress'),
-
-    # Lesson-related endpoints
+    path('courses/<int:course_id>/courseprogress/mark-completed/', CourseProgressView.as_view(), name='courseprogress-mark-completed'),
+     # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
 
-    # path('courses/<int:course_id>/progress/', ProgressView.as_view(), name='course-progress'),
-    path('courses/progress/<int:user_id>/<int:course_id>/', ProgressView.as_view(), name='user-progress'),
     path('notifications/', NotificationView.as_view(), name='notification-list'),
 
     # Quiz-related endpoints (uncomment if needed)
-    path('quizzes/', QuizListView.as_view(), name='quiz-list'),  # Added if needed
-    path('quizzes/create/', QuizCreateView.as_view(), name='quiz-create'),  # Added if needed
-    path('quizzes/<int:pk>/update/', QuizUpdateView.as_view(), name='quiz-update'),  # Added if needed
-    path('quizzes/<int:pk>/delete/', QuizDeleteView.as_view(), name='quiz-delete')  # Added if needed
+    path('quizzes/', QuizListView.as_view(), name='quiz-list'),  # List all quizzes
+    path('quizzes/create/', QuizCreateView.as_view(), name='quiz-create'),  # Create a new quiz
+    path('quizzes/<int:pk>/', QuizDetailView.as_view(), name='quiz-detail'),  # Retrieve quiz details by ID
+    path('quizzes/<int:quiz_id>/take/', TakeQuizAPIView.as_view(), name='take-quiz'),
+    path('quizzes/<int:pk>/update/', QuizUpdateView.as_view(), name='quiz-update'),  # Update a quiz
+    path('quizzes/<int:pk>/delete/', QuizDeleteView.as_view(), name='quiz-delete'),  # Delete a quiz
+    
 ]

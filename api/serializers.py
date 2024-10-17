@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
-from .models import Category, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
+from .models import (Category, HealthProviderUser, Course, Lesson, Quiz, Question,
+                      Answer, Exam, Certificate, Enrollment, Progress, Notification, UserAnswer)
 
 User = get_user_model()
 
@@ -97,26 +98,6 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = ['id', 'title', 'video_url', 'content', 'pdf_file', 'created_at']
 
-class QuizSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Quiz
-        fields = ['id', 'course', 'title', 'total_marks']
-
-class QuestionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Question
-        fields = ['id', 'quiz', 'text', 'is_multiple_choice']
-
-class AnswerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Answer
-        fields = ['id', 'question', 'text', 'is_correct']
-
-class ExamSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Exam
-        fields = ['id', 'course', 'title', 'total_marks']
-
 class CertificateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Certificate
@@ -132,12 +113,12 @@ class CourseBasicSerializer(serializers.ModelSerializer):
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     # These will be used for both input (IDs) and output (nested data)
-    user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='user')
-    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
+    user = UserSerializer(read_only=True)  # Use nested UserSerializer
+    course = CourseBasicSerializer(read_only=True)  # Use nested CourseBasicSerializer
 
     class Meta:
         model = Enrollment
-        fields = ['id', 'user_id', 'course', 'date_enrolled']  # Include user_id, course, and date_enrolled
+        fields = ['id', 'user', 'course', 'date_enrolled']
 
     def create(self, validated_data):
         """
@@ -161,7 +142,7 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             'id', 'title', 'description', 'course_image', 'created_at',
-            'category', 'lessons', 'instructor', 'enrollments'
+            'category', 'lessons', 'instructor', 'enrollments','quizzers'
         ]
 
     def get_enrollments(self, obj):
@@ -171,14 +152,130 @@ class CourseSerializer(serializers.ModelSerializer):
         enrollments = Enrollment.objects.filter(course=obj)
         return EnrollmentSerializer(enrollments, many=True).data
 
-class ProgressSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+class CourseProgressSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True)  # User ID to mark progress
+    type = serializers.ChoiceField(choices=['lesson', 'quiz'], required=True)  # Type of item
+    item_id = serializers.IntegerField(required=True)  # ID of the lesson or quiz to mark as completed
 
-    class Meta:
-        model = Progress
-        fields = ['id', 'user_name', 'course', 'completed_lessons', 'total_lessons']
+    def validate(self, data):
+        """
+        Ensure that the lesson or quiz exists before marking it as completed.
+        """
+        item_type = data.get('type')
+        item_id = data.get('item_id')
+
+        if item_type == 'lesson':
+            if not Lesson.objects.filter(id=item_id).exists():
+                raise serializers.ValidationError("Lesson does not exist.")
+        elif item_type == 'quiz':
+            if not Quiz.objects.filter(id=item_id).exists():
+                raise serializers.ValidationError("Quiz does not exist.")
+
+        return data
+
+    def create(self, validated_data):
+        """
+        This method is not used, but you can define it if needed for future enhancements.
+        """
+        pass  # If you need to implement any logic for creating progress, add it here.
+
+    def update(self, instance, validated_data):
+        """
+        Update the progress for the user based on the item type and ID.
+        """
+        item_type = validated_data.get('type')
+        item_id = validated_data.get('item_id')
+
+        # Update progress for the specified user and course
+        instance.update_progress(item_type, item_id)  # Call the update_progress method from the model
+        return instance
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'user', 'message', 'created_at', 'is_read']
+
+class QuizSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = ['id', 'course', 'title', 'total_marks']
+        
+class AnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answer
+        fields = ['id', 'question', 'text', 'is_correct']
+
+class QuestionSerializer(serializers.ModelSerializer):
+    answers = AnswerSerializer(many=True, read_only=True)
+    class Meta:
+        model = Question
+        fields = ['id', 'quiz', 'text','is_multiple_choice','answers']
+
+class QuizDetailSerializer(serializers.ModelSerializer):
+    # course = CourseSerializer(read_only=True)  # Nested CourseSerializer
+    questions = QuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = ['id', 'title', 'total_marks','questions']
+
+
+class ExamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exam
+        fields = ['id', 'course', 'title', 'total_marks']
+
+class UserAnswerSerializer(serializers.Serializer):
+    question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
+    selected_choice = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
+
+
+class TakeQuizSerializer(serializers.Serializer):
+    answers = UserAnswerSerializer(many=True)
+
+    def validate(self, data):
+        answers = data['answers']
+        quiz = self.context['quiz']
+
+        question_ids = set(quiz.questions.values_list('id', flat=True))
+        for answer in answers:
+            question_id = answer['question'].id
+            if question_id not in question_ids:
+                raise serializers.ValidationError("Invalid question in answers.")
+
+        return data
+
+    def create(self, validated_data):
+        quiz = self.context['quiz']
+        user = self.context['user']
+        answers = validated_data['answers']
+
+        correct_count = 0
+        total_questions = len(answers)
+
+        for answer in answers:
+            question = answer['question']
+            selected_choice = answer['selected_choice']
+            is_correct = selected_choice.is_correct
+
+            user_answer, created = UserAnswer.objects.update_or_create(
+                user=user,
+                question=question,
+                defaults={
+                    'selected_choice': selected_choice,
+                    'is_correct': is_correct
+                }
+            )
+
+            if is_correct:
+                correct_count += 1
+
+        score = (correct_count / total_questions) * 100
+
+        return {
+            'quiz_id': quiz.id,
+            'score': score,
+            'total_questions': total_questions,
+            'correct_answers': correct_count
+        }
+  

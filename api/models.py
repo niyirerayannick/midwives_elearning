@@ -19,7 +19,6 @@ class HealthProviderUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-
 class HealthProviderUser(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -27,7 +26,6 @@ class HealthProviderUser(AbstractUser):
         ('student', 'Student'),
     ]
 
-    # Define registration number as the primary field for authentication
     registration_number = models.CharField(
         max_length=10, 
         unique=True, 
@@ -36,7 +34,7 @@ class HealthProviderUser(AbstractUser):
             message='Registration number must be in the format: LICXXXXRW (e.g., LIC1063RW)'
         )],
     )
-
+    
     first_name = models.CharField(max_length=50, null=True, blank=True)
     last_name = models.CharField(max_length=50, null=True, blank=True)
     email = models.EmailField(unique=True, null=True, blank=True)
@@ -45,28 +43,23 @@ class HealthProviderUser(AbstractUser):
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
 
-    # Remove username as it's no longer the primary field
     username = None
 
     objects = HealthProviderUserManager() 
 
-    # Override related_name for groups and permissions to avoid conflicts
     groups = models.ManyToManyField(
         'auth.Group', related_name='healthprovideruser_set', blank=True)
     user_permissions = models.ManyToManyField(
         'auth.Permission', related_name='healthprovideruser_set', blank=True)
 
-    # Set registration_number as the field for authentication
     USERNAME_FIELD = 'registration_number'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
 
     def save(self, *args, **kwargs):
-        # Automatically generate registration number for students if not provided
         if self.role == 'student' and not self.registration_number:
             last_user_id = HealthProviderUser.objects.filter(role='student').count() + 1
             self.registration_number = f"LIC{1000 + last_user_id}RW"
         
-        # Set the registration number as the initial password if not explicitly set
         if not self.pk and self.registration_number:
             self.set_password(self.registration_number)
         
@@ -75,7 +68,6 @@ class HealthProviderUser(AbstractUser):
     def __str__(self):
         return f"{self.registration_number} - {self.get_role_display()}"
 
-# Category Model (For course categorization)
 class Category(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -83,31 +75,28 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-# Course Model (Now includes a foreign key to Category)
 class Course(models.Model):
     title = models.CharField(max_length=255)
-    description = models.TextField()  # Description field
+    description = models.TextField()
     instructor = models.ForeignKey('HealthProviderUser', related_name='courses', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)  # Add created_at for course
+    created_at = models.DateTimeField(auto_now_add=True)
     course_image = models.ImageField(upload_to='course_images/', null=True, blank=True)
-    category = models.ForeignKey(Category, related_name='courses', on_delete=models.SET_NULL, null=True, blank=True)  # Add category field
+    category = models.ForeignKey(Category, related_name='courses', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.title
 
-# Lesson Model
 class Lesson(models.Model):
     title = models.CharField(max_length=255)
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE)
-    video_url = models.URLField(max_length=500, blank=True, null=True)  # Optional field for videos
+    video_url = models.URLField(max_length=500, blank=True, null=True)
     content = models.TextField()
-    pdf_file = models.FileField(upload_to='lessons/pdfs/', blank=True, null=True)  # Add pdf_file field
+    pdf_file = models.FileField(upload_to='lessons/pdfs/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
 
-# Quiz Model
 class Quiz(models.Model):
     course = models.ForeignKey(Course, related_name='quizzes', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -116,7 +105,6 @@ class Quiz(models.Model):
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
-# Question Model (For Quizzes)
 class Question(models.Model):
     quiz = models.ForeignKey(Quiz, related_name='questions', on_delete=models.CASCADE)
     text = models.CharField(max_length=500)
@@ -125,7 +113,6 @@ class Question(models.Model):
     def __str__(self):
         return self.text
 
-# Answer Model (For Questions)
 class Answer(models.Model):
     question = models.ForeignKey(Question, related_name='answers', on_delete=models.CASCADE)
     text = models.CharField(max_length=500)
@@ -134,7 +121,15 @@ class Answer(models.Model):
     def __str__(self):
         return f"{self.text} ({'Correct' if self.is_correct else 'Incorrect'})"
 
-# Exam Model (Final Exam for a Course)
+class UserAnswer(models.Model):
+    user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    selected_choice = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'question')
+
 class Exam(models.Model):
     course = models.ForeignKey(Course, related_name='exams', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -143,7 +138,6 @@ class Exam(models.Model):
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
-# Certificate Model (Issued after course completion)
 class Certificate(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='certificates', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='certificates', on_delete=models.CASCADE)
@@ -153,7 +147,6 @@ class Certificate(models.Model):
     def __str__(self):
         return f"Certificate for {self.user.username} - {self.course.title}"
 
-# Enrollment Model (For tracking user enrollment in courses)
 class Enrollment(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='enrollments', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='enrollments', on_delete=models.CASCADE)
@@ -162,22 +155,26 @@ class Enrollment(models.Model):
     def __str__(self):
         return f"{self.user.username} enrolled in {self.course.title}"
 
-# Progress Model (To track student progress in a course)
 class Progress(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
-    completed_lessons = models.IntegerField(default=0)
+    completed_lessons = models.JSONField(default=list)  # Store completed lesson IDs
+    completed_quizzes = models.JSONField(default=list)  # Store completed quiz IDs
     total_lessons = models.IntegerField()
 
     def __str__(self):
         return f"{self.user.username}'s progress in {self.course.title}"
     
-    def update_progress(self):
-        """Increment the completed lessons count."""
-        self.completed_lessons += 1
+    def update_progress(self, item_type, item_id):
+        if item_type == 'lesson':
+            if item_id not in self.completed_lessons:
+                self.completed_lessons.append(item_id)
+        elif item_type == 'quiz':
+            if item_id not in self.completed_quizzes:
+                self.completed_quizzes.append(item_id)
         self.save()
 
-# Notification Model (For user notifications, such as course updates, certificates)
+# Notification Model
 class Notification(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='notifications', on_delete=models.CASCADE)
     message = models.CharField(max_length=255)
@@ -185,4 +182,5 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Notification for {self.user.username}"
+        return f"Notification for {self.user.registration_number}"
+
