@@ -142,7 +142,7 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             'id', 'title', 'description', 'course_image', 'created_at',
-            'category', 'lessons', 'instructor', 'enrollments','quizzers'
+            'category', 'lessons', 'instructor', 'enrollments'
         ]
 
     def get_enrollments(self, obj):
