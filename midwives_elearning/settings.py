@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ['fcmc.muberarugo.org', '127.0.0.1', 'localhost']
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -144,3 +145,11 @@ MEDIA_URL = '/media/'  # Make sure to also set MEDIA_URL
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'api.HealthProviderUser'
 
+JAZZMIN_SETTINGS = {
+    "site_title": "MUBERAGURUGO ADMIN",
+    "site_header": "MUBERAGURUGO",
+    "site_brand": "MUBERAGURUGO",
+    "site_logo": None,
+    "login_logo": None,
+    "copyright": "MUBERAGURUGO Ltd",
+    }
