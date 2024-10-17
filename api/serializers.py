@@ -132,12 +132,12 @@ class CourseBasicSerializer(serializers.ModelSerializer):
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     # These will be used for both input (IDs) and output (nested data)
-    user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), source='user')
-    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
+    user = UserSerializer(read_only=True)  # Use nested UserSerializer
+    course = CourseBasicSerializer(read_only=True)  # Use nested CourseBasicSerializer
 
     class Meta:
         model = Enrollment
-        fields = ['id', 'user_id', 'course', 'date_enrolled']  # Include user_id, course, and date_enrolled
+        fields = ['id', 'user', 'course', 'date_enrolled']
 
     def create(self, validated_data):
         """
