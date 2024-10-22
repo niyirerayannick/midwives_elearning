@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
-from .models import (Category, HealthProviderUser, Course, Lesson, Quiz, Question,
-                      Answer, Exam, Certificate, Enrollment, Progress, Notification, UserAnswer)
+from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Quiz, Question,
+                      Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, UserAnswer)
 
 User = get_user_model()
 
@@ -96,7 +96,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'video_url', 'content', 'pdf_file', 'created_at']
+        fields = ['id', 'title', 'course', 'video_file', 'audio_file', 'readings', 'pdf_file', 'created_at']  # Updated field names
 
 class CertificateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -219,7 +219,6 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ['id', 'title', 'total_marks','questions']
 
-
 class ExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
@@ -228,7 +227,6 @@ class ExamSerializer(serializers.ModelSerializer):
 class UserAnswerSerializer(serializers.Serializer):
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
     selected_choice = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
-
 
 class TakeQuizSerializer(serializers.Serializer):
     answers = UserAnswerSerializer(many=True)
@@ -278,4 +276,15 @@ class TakeQuizSerializer(serializers.Serializer):
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
-  
+
+class GradeSerializer(serializers.ModelSerializer):
+    percentage = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Grade
+        fields = ['user', 'course', 'quiz', 'exam', 'score', 'total_score', 'percentage']
+
+class UpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Update
+        fields = ['id', 'title', 'content', 'author', 'cover_image', 'file', 'created_at', 'updated_at']

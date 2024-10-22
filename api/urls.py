@@ -6,8 +6,10 @@ from .views import (
     CourseDeleteView,
     CourseEnrollAPIView,
     CourseProgressView,
+    CourseSearchView,
     CourseUpdateView,
     CourseEnrollAPIView,
+    LessonDetailView,
     QuizDetailView,
     RegistrationNumberAuthToken,
     AdminUserCreateView,
@@ -23,7 +25,10 @@ from .views import (
     QuizUpdateView,   # Uncommented if needed
     QuizDeleteView,
     TakeQuizAPIView,
+    UpdateDetailView,
+    UpdateListView,
     UserEnrolledCoursesAPIView,
+    UserGradeListView,
 )
 
 urlpatterns = [
@@ -41,9 +46,12 @@ urlpatterns = [
     path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
     path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
     path('courses/<int:course_id>/courseprogress/mark-completed/', CourseProgressView.as_view(), name='courseprogress-mark-completed'),
+    path('courses/<int:course_id>/grades/', UserGradeListView.as_view(), name='user-grades'),
+    path('courses/search/', CourseSearchView.as_view(), name='course-search'),
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed
+    path('lessons/<int:id>/', LessonDetailView.as_view(), name='lesson-detail'),
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
 
@@ -57,4 +65,6 @@ urlpatterns = [
     path('quizzes/<int:pk>/update/', QuizUpdateView.as_view(), name='quiz-update'),  # Update a quiz
     path('quizzes/<int:pk>/delete/', QuizDeleteView.as_view(), name='quiz-delete'),  # Delete a quiz
     
+    path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
+    path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update
 ]

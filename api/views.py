@@ -1,22 +1,22 @@
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
-from rest_framework.generics import GenericAPIView, ListAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.generics import (GenericAPIView, ListAPIView, CreateAPIView, 
+                                     UpdateAPIView, DestroyAPIView,RetrieveAPIView)
 from rest_framework.mixins import CreateModelMixin
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework import generics
-from django.contrib.auth import get_user_model
-from .models import (HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
-                     Exam, Certificate, Enrollment, Progress, Notification)
+from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
+from .models import (Grade, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
+                     Exam, Certificate, Enrollment, Progress, Notification, Update)
 
-from .serializers import (AnswerSerializer, CourseProgressSerializer, EnrollmentSerializer, 
-                          NotificationSerializer, QuizDetailSerializer, TakeQuizSerializer,  
+from .serializers import (AnswerSerializer, CourseProgressSerializer,
+                           EnrollmentSerializer, GradeSerializer, 
+                          NotificationSerializer, QuizDetailSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
-                           QuizSerializer,QuestionSerializer)
-from api.serializers import ChangePasswordSerializer, LoginSerializer
-
+                           QuizSerializer,QuestionSerializer, ChangePasswordSerializer, LoginSerializer)
 User = get_user_model()
-
 # Admin-only view for creating new users
 class AdminUserCreateView(GenericAPIView, CreateModelMixin):
     serializer_class = UserSerializer
@@ -174,6 +174,20 @@ class CourseDeleteView(DestroyAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
 
+class CourseSearchView(ListAPIView):
+    serializer_class = CourseSerializer
+    
+    def get_queryset(self):
+        # Get the search term from the query parameters
+        search_term = self.request.query_params.get('q', None)
+        queryset = Course.objects.all()
+
+        if search_term:
+            # Filter courses based on the search term
+            queryset = queryset.filter(title__icontains=search_term)
+        
+        return queryset
+
 # Lesson Views
 class LessonListView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
@@ -200,6 +214,11 @@ class LessonUpdateView(UpdateAPIView):
 class LessonDeleteView(DestroyAPIView):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
+
+class LessonDetailView(RetrieveAPIView):
+    queryset = Lesson.objects.all()
+    serializer_class = LessonSerializer
+    lookup_field = 'id'
 
 # Quiz Views
 class QuizListView(GenericAPIView):
@@ -397,7 +416,32 @@ class TakeQuizAPIView(generics.CreateAPIView):
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)
-  
+
+class UserGradeListView(APIView):
+    # No authentication or permissions applied
+
+    def post(self, request, course_id, *args, **kwargs):
+        # Get the user_id from the request data
+        user_id = request.data.get('user_id')
+
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Fetch the user by the user_id provided in the request body
+            user = User.objects.get(pk=user_id)
+            
+            # Filter grades by user and course
+            grades = Grade.objects.filter(user=user, course_id=course_id)
+            
+            # Serialize the grade data
+            serializer = GradeSerializer(grades, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 # Notification View
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
@@ -407,3 +451,12 @@ class NotificationView(GenericAPIView):
         notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
+
+
+class UpdateListView(generics.ListCreateAPIView):
+    queryset = Update.objects.all()
+    serializer_class = UpdateSerializer
+
+class UpdateDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Update.objects.all()
+    serializer_class = UpdateSerializer

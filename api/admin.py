@@ -1,7 +1,10 @@
-from django.contrib.auth.admin import UserAdmin
-from .models import HealthProviderUser, Course, Lesson, Quiz, Question, Answer, Exam, Certificate, Enrollment, Progress, Notification
 from django.contrib import admin
-
+from django.utils.html import format_html
+from .models import (
+    HealthProviderUser, Category, Course, Lesson, Quiz, Question, Answer, Update,
+    UserAnswer, Exam, Certificate, Enrollment, Progress, Grade, Notification
+)
+from django.contrib.auth.admin import UserAdmin
 
 class HealthProviderUserAdmin(UserAdmin):
     model = HealthProviderUser
@@ -40,91 +43,87 @@ class HealthProviderUserAdmin(UserAdmin):
 # Register the custom user model with the admin
 admin.site.register(HealthProviderUser, HealthProviderUserAdmin)
 
-
-
-# Register the Course model
+# Customize Course model in the admin panel
+@admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title', 'instructor', 'created_at']
-    search_fields = ['title', 'instructor__first_name', 'instructor__last_name']
-    list_filter = ['instructor']
+    list_display = ('title', 'instructor', 'created_at', 'cpd')
+    list_filter = ('category', 'instructor', 'created_at')
+    search_fields = ('title', 'description')
+    autocomplete_fields = ['instructor']
+    readonly_fields = ['created_at']
 
-admin.site.register(Course, CourseAdmin)
-
-
-# Register the Lesson model
+# Customize Lesson model in the admin panel
+@admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ['id', 'course', 'title', 'created_at']
-    search_fields = ['title', 'course__title']
-    list_filter = ['course', 'created_at']
+    list_display = ('title', 'course', 'created_at')
+    search_fields = ('title', 'course__title')
+    list_filter = ('course',)
+    readonly_fields = ['created_at']
 
-admin.site.register(Lesson, LessonAdmin)
-
-
-# Register the Quiz model
+# Customize Quiz model in the admin panel
+@admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ['id', 'course', 'title', 'total_marks']
-    search_fields = ['title', 'course__title']
-    list_filter = ['course']
+    list_display = ('title', 'course', 'total_marks')
+    list_filter = ('course',)
+    search_fields = ('title', 'course__title')
 
-admin.site.register(Quiz, QuizAdmin)
-
-
-# Register the Question model
+# Customize Question model in the admin panel
+@admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'quiz', 'text', 'is_multiple_choice']
-    search_fields = ['text', 'quiz__title']
-    list_filter = ['is_multiple_choice']
+    list_display = ('text', 'quiz', 'is_multiple_choice')
+    list_filter = ('quiz', 'is_multiple_choice')
+    search_fields = ('text', 'quiz__title')
 
-admin.site.register(Question, QuestionAdmin)
-
-
-# Register the Answer model
+# Customize Answer model in the admin panel
+@admin.register(Answer)
 class AnswerAdmin(admin.ModelAdmin):
-    list_display = ['id', 'question', 'text', 'is_correct']
-    search_fields = ['text', 'question__text']
+    list_display = ('text', 'question', 'is_correct')
+    list_filter = ('is_correct', 'question__quiz')
+    search_fields = ('text', 'question__text')
 
-admin.site.register(Answer, AnswerAdmin)
-
-
-# Register the Exam model
-class ExamAdmin(admin.ModelAdmin):
-    list_display = ['id', 'course', 'title', 'total_marks']
-    search_fields = ['title', 'course__title']
-    list_filter = ['course']
-
-admin.site.register(Exam, ExamAdmin)
-
-
-# Register the Certificate model
+# Customize Certificate model in the admin panel
+@admin.register(Certificate)
 class CertificateAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'course', 'date_issued']
-    search_fields = ['user__username', 'course__title']
+    list_display = ('user', 'course', 'date_issued')
+    list_filter = ('course', 'date_issued')
+    search_fields = ('user__registration_number', 'course__title')
 
-admin.site.register(Certificate, CertificateAdmin)
-
-
-# Register the Enrollment model
+# Customize Enrollment model in the admin panel
+@admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'course', 'date_enrolled']
-    search_fields = ['user__username', 'course__title']
-    list_filter = ['date_enrolled']
+    list_display = ('user', 'course', 'date_enrolled')
+    list_filter = ('course', 'date_enrolled')
+    search_fields = ('user__registration_number', 'course__title')
 
-admin.site.register(Enrollment, EnrollmentAdmin)
-
-
-# Register the Progress model
+# Customize Progress model in the admin panel
+@admin.register(Progress)
 class ProgressAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'course', 'completed_lessons', 'total_lessons']
-    search_fields = ['user__username', 'course__title']
-    list_filter = ['course']
+    list_display = ('user', 'course', 'total_lessons')
+    search_fields = ('user__registration_number', 'course__title')
 
-admin.site.register(Progress, ProgressAdmin)
+# Customize Grade model in the admin panel
+@admin.register(Grade)
+class GradeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'course', 'score', 'total_score')
+    list_filter = ('course',)
+    search_fields = ('user__registration_number', 'course__title')
 
-
-# Register the Notification model
+# Customize Notification model in the admin panel
+@admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'message', 'created_at', 'is_read']
-    search_fields = ['user__username', 'message']
-    list_filter = ['created_at', 'is_read']
+    list_display = ('user', 'message', 'created_at', 'is_read')
+    list_filter = ('is_read', 'created_at')
+    search_fields = ('user__registration_number', 'message')
 
-admin.site.register(Notification, NotificationAdmin)
+# Customize Category model in the admin panel
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+class UpdateAdmin(admin.ModelAdmin):
+    list_display = ('title', 'author', 'created_at', 'updated_at')  # Fields to display in the list view
+    search_fields = ('title', 'content')  # Fields to search in the admin
+    prepopulated_fields = {'title': ('content',)}  # Automatically fill the title field based on the content (optional)
+
+admin.site.register(Update, UpdateAdmin)
