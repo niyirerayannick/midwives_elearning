@@ -119,19 +119,6 @@ class Lesson(models.Model):
             models.UniqueConstraint(fields=['title', 'course'], name='unique_lesson_title_in_course')
         ]
 
-    def clean(self):
-        """
-        Ensures that at least one of the following fields is provided:
-        video_file, audio_file, readings, pdf_file, or all of them at once.
-        """
-        if not (self.video_file or self.audio_file or self.readings or self.pdf_file):
-            raise ValidationError("You must provide at least one of the following: video, audio, readings, or a PDF file.")
-        
-        # Optional: If you want to enforce that all must be filled if one is provided:
-        fields_filled = [bool(self.video_file), bool(self.audio_file), bool(self.readings), bool(self.pdf_file)]
-        if any(fields_filled) and not all(fields_filled):
-            raise ValidationError("If one media type is provided, all must be provided (video, audio, readings, and PDF).")
-
     def save(self, *args, **kwargs):
         self.clean()
         super(Lesson, self).save(*args, **kwargs)
