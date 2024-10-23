@@ -89,28 +89,21 @@ class Course(models.Model):
         return self.title
 
 def validate_video_file(value):
-    file_size = value.size
-    max_size = 50 * 1024 * 1024  # 50 MB limit
-    if file_size > max_size:
-        raise ValidationError("The maximum file size that can be uploaded is 50MB.")
-    
+    # Remove file size check, only check for allowed extensions
     if not value.name.endswith(('.mp4', '.avi', '.mkv', '.mov')):
         raise ValidationError("Only video files (.mp4, .avi, .mkv, .mov) are allowed.")
 
 def validate_audio_file(value):
-    file_size = value.size
-    max_size = 20 * 1024 * 1024  # 20 MB limit
-    if file_size > max_size:
-        raise ValidationError("The maximum file size that can be uploaded is 20MB.")
-    
+    # Remove file size check, only check for allowed extensions
     if not value.name.endswith(('.mp3', '.wav', '.aac')):
         raise ValidationError("Only audio files (.mp3, .wav, .aac) are allowed.")
+
 
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name="Lesson Title", help_text="The title of the lesson")
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE, verbose_name="Related Course")
-    video_file = models.FileField(upload_to='lessons/videos/', blank=True, null=True, validators=[validate_video_file], verbose_name="Video File", help_text="Optional video file for the lesson")
-    audio_file = models.FileField(upload_to='lessons/audios/', blank=True, null=True, validators=[validate_audio_file], verbose_name="Audio File", help_text="Optional audio file for the lesson")
+    video_file = models.FileField(upload_to='lessons/videos/', blank=True, null=True, verbose_name="Video File", help_text="Optional video file for the lesson")
+    audio_file = models.FileField(upload_to='lessons/audios/', blank=True, null=True, verbose_name="Audio File", help_text="Optional audio file for the lesson")
     readings = models.TextField(blank=True, null=True, verbose_name="Readings", help_text="Optional text-based lesson content")
     pdf_file = models.FileField(upload_to='lessons/pdfs/', blank=True, null=True, verbose_name="PDF File", help_text="Optional PDF file for lesson")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date Created")
