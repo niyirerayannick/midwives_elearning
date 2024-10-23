@@ -278,11 +278,13 @@ class TakeQuizSerializer(serializers.Serializer):
         }
 
 class GradeSerializer(serializers.ModelSerializer):
-    percentage = serializers.ReadOnlyField()
+    quiz = QuizSerializer(read_only=True)  # Nested serializer for quiz
+    exam = ExamSerializer(read_only=True)  # Nested serializer for exam
+    user = serializers.PrimaryKeyRelatedField(read_only=True)  # User ID
 
     class Meta:
         model = Grade
-        fields = ['user', 'course', 'quiz', 'exam', 'score', 'total_score', 'percentage']
+        fields = ['id', 'user', 'quiz', 'exam', 'score', 'total_score',] 
 
 class UpdateSerializer(serializers.ModelSerializer):
     class Meta:

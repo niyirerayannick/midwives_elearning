@@ -424,23 +424,32 @@ class UserGradeListView(APIView):
         # Get the user_id from the request data
         user_id = request.data.get('user_id')
 
+        # Check if user_id is provided in the request
         if not user_id:
             return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Fetch the user by the user_id provided in the request body
+            # Fetch the user by the provided user_id
             user = User.objects.get(pk=user_id)
             
-            # Filter grades by user and course
-            grades = Grade.objects.filter(user=user, course_id=course_id)
+            # Get all grades for quizzes and exams associated with the course
+            # Assuming that Grade model has 'quiz', 'exam', and 'course_id' fields
+            quiz_grades = Grade.objects.filter(user=user, quiz__course_id=course_id)
+            exam_grades = Grade.objects.filter(user=user, exam__course_id=course_id)
+
+            # Combine the grades from both quizzes and exams
+            all_grades = list(quiz_grades) + list(exam_grades)
+
+            # Check if any grades exist
+            if not all_grades:
+                return Response({"message": "No grades found for this course's quizzes or exams."}, status=status.HTTP_404_NOT_FOUND)
             
-            # Serialize the grade data
-            serializer = GradeSerializer(grades, many=True)
+            # Serialize the combined grade data
+            serializer = GradeSerializer(all_grades, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        
+
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
 
 # Notification View
 class NotificationView(GenericAPIView):
