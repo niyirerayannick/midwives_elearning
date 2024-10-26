@@ -31,8 +31,8 @@ class HealthProviderUser(AbstractUser):
         max_length=10, 
         unique=True, 
         validators=[RegexValidator(
-            regex=r'^LIC\d{4}RW$', 
-            message='Registration number must be in the format: LICXXXXRW (e.g., LIC1063RW)'
+            regex=r'^LIC\d{3,6}RW$',  # Updated regex to allow 3 to 6 digits
+            message='Registration number must be in the format: LICXXXRW to LICXXXXRW (e.g., LIC123RW, LIC1234RW, LIC123456RW)'
         )],
     )
     
