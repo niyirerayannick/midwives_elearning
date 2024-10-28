@@ -36,6 +36,7 @@ from .views import (
     UpdateListView,
     UserEnrolledCoursesAPIView,
     UserGradeListView,
+    UserProfileView,
 )
 
 
@@ -44,7 +45,7 @@ urlpatterns = [
     path('auth/login/', RegistrationNumberAuthToken.as_view(), name='login'),
     path('auth/register/', AdminUserCreateView.as_view(), name='register'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
-
+    path('auth/user/profile/', UserProfileView.as_view(), name='user-profile'),
     # Course-related endpoints
     path('courses/', CourseListView.as_view(), name='course-list'),
     path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),

@@ -41,6 +41,7 @@ class HealthProviderUser(AbstractUser):
     email = models.EmailField(unique=True, null=True, blank=True)
     telephone = models.CharField(max_length=15, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    profile_image = models.ImageField(upload_to='profile_images/', null=True, blank=True)  # Ensure this line is present
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
 

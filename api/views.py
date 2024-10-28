@@ -143,6 +143,14 @@ class ChangePasswordView(GenericAPIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    queryset = HealthProviderUser.objects.all()
+    serializer_class = UserSerializer
+
+    def get_object(self):
+        # Assuming the user ID is provided in the token (JWT, etc.)
+        return self.request.user
+
 # Course Views
 class CourseListView(ListAPIView):
     queryset = Course.objects.all()
