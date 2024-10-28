@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
 from rest_framework.generics import (GenericAPIView, ListAPIView, CreateAPIView, 
@@ -8,12 +9,12 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
-from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
-                     Exam, Certificate, Enrollment, Progress, Notification, Update)
+from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
+                     Exam, Certificate, Enrollment, Progress, Notification, Skill, Update, Comment)
 
-from .serializers import (AnswerSerializer, CategorySerializer, CourseProgressSerializer,
+from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, GradeRequestSerializer, GradeSerializer, 
-                          NotificationSerializer, QuizDetailSerializer, TakeQuizSerializer, UpdateSerializer,  
+                          NotificationSerializer, QuizDetailSerializer, SkillSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
                            QuizSerializer,QuestionSerializer, ChangePasswordSerializer, LoginSerializer)
 User = get_user_model()
@@ -481,3 +482,48 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
+# CRUD for Comments
+class CommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        update_id = self.kwargs['update_id']
+        return Comment.objects.filter(update_id=update_id)
+
+    def perform_create(self, serializer):
+        update_id = self.kwargs['update_id']
+        update = get_object_or_404(Update, id=update_id)
+        serializer.save(author=self.request.user, update=update)
+
+class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        update_id = self.kwargs['update_id']
+        return Comment.objects.filter(update_id=update_id)
+
+# Like or unlike an update
+class LikeUpdateView(APIView):
+
+    def post(self, request, update_id):
+        update = get_object_or_404(Update, id=update_id)
+        user = request.user
+
+        # Check if the user has already liked this update
+        like, created = Like.objects.get_or_create(update=update, user=user)
+
+        if not created:
+            # If the like already exists, remove it (unlike)
+            like.delete()
+            return Response({'message': 'Like removed'}, status=status.HTTP_200_OK)
+
+        return Response({'message': 'Update liked'}, status=status.HTTP_201_CREATED)
+    
+class SkillListCreateView(generics.ListCreateAPIView):
+    queryset = Skill.objects.all()
+    serializer_class = SkillSerializer
+
+class SkillRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Skill.objects.all()
+    serializer_class = SkillSerializer

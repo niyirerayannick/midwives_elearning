@@ -3,6 +3,8 @@ from .views import (
     CategoryDetailView,
     CategoryListCreateView,
     ChangePasswordView,
+    CommentListCreateView,
+    CommentRetrieveUpdateDestroyView,
     CompleteLessonAPIView,
     CourseCreateView,
     CourseDeleteView,
@@ -12,6 +14,7 @@ from .views import (
     CourseUpdateView,
     CourseEnrollAPIView,
     LessonDetailView,
+    LikeUpdateView,
     QuizDetailView,
     RegistrationNumberAuthToken,
     AdminUserCreateView,
@@ -26,12 +29,15 @@ from .views import (
     QuizCreateView,   # Uncommented if needed
     QuizUpdateView,   # Uncommented if needed
     QuizDeleteView,
+    SkillListCreateView,
+    SkillRetrieveUpdateDestroyView,
     TakeQuizAPIView,
     UpdateDetailView,
     UpdateListView,
     UserEnrolledCoursesAPIView,
     UserGradeListView,
 )
+
 
 urlpatterns = [
     # Auth
@@ -52,6 +58,10 @@ urlpatterns = [
     path('courses/search/', CourseSearchView.as_view(), name='course-search'),
     path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
+    # CRUD for Skills
+    path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
+    path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),
+
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed
@@ -71,4 +81,9 @@ urlpatterns = [
     
     path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
     path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update
+    path('updates/<int:update_id>/comments/', CommentListCreateView.as_view(), name='comment_list_create'),  # List and create comments
+    path('updates/<int:update_id>/comments/<int:pk>/', CommentRetrieveUpdateDestroyView.as_view(), name='comment_detail'),  # Retrieve, update, delete a comment
+
+    # Like or unlike an update
+    path('updates/<int:update_id>/like/', LikeUpdateView.as_view(), name='like_update'),
 ]

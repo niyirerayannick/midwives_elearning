@@ -1,7 +1,9 @@
+from tokenize import Comment
+from .models import Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
-from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Quiz, Question,
+from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question,
                       Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, UserAnswer)
 
 User = get_user_model()
@@ -98,12 +100,17 @@ class CertificateSerializer(serializers.ModelSerializer):
         model = Certificate
         fields = ['id', 'user', 'course', 'date_issued', 'certificate_file']
 
+class SkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = ['id', 'name']
+        
 class CourseBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course  # Assuming this is your course model
         fields = [
             'id', 'title', 'description', 'course_image', 'created_at',
-            'category', 'lessons', 'instructor', 'enrollments'
+            'category', 'lessons', 'instructor', 'enrollments','skills'
         ]
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -311,3 +318,16 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'courses']
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['id', 'update', 'author', 'content', 'created_at']
+        read_only_fields = ['id', 'author', 'created_at', 'update']
+
+
+class LikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Like
+        fields = ['id', 'update', 'user', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at', 'update']

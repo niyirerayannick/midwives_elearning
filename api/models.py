@@ -75,13 +75,20 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+    
+class Skill(models.Model):
+    name = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.name
+    
 class Course(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     instructor = models.ForeignKey('HealthProviderUser', related_name='courses', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     cpd = models.PositiveIntegerField()
+    skills = models.ManyToManyField(Skill, related_name='courses', blank=True)  # New field for skills
     course_image = models.ImageField(upload_to='course_images/', null=True, blank=True)
     category = models.ForeignKey(Category, related_name='courses', on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -228,11 +235,39 @@ class Notification(models.Model):
 class Update(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
-    author = models.ForeignKey(HealthProviderUser, related_name='updates', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)  # Automatically set when the object is created
+    author = models.ForeignKey('HealthProviderUser', related_name='updates', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     cover_image = models.ImageField(upload_to='updates/covers/', blank=True, null=True)
     file = models.FileField(upload_to='updates/files/', blank=True, null=True)
 
     def __str__(self):
         return self.title
+
+    def total_likes(self):
+        return self.likes.count()
+
+    def total_comments(self):
+        return self.comments.count()
+
+
+class Comment(models.Model):
+    update = models.ForeignKey(Update, related_name='comments', on_delete=models.CASCADE)
+    author = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Comment by {self.author} on {self.update}'
+
+
+class Like(models.Model):
+    update = models.ForeignKey(Update, related_name='likes', on_delete=models.CASCADE)
+    user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('update', 'user')  # Ensures that a user can like an update only once
+
+    def __str__(self):
+        return f'{self.user} likes {self.update}'
