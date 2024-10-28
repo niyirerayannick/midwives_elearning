@@ -88,11 +88,6 @@ class InstructorSerializer(serializers.ModelSerializer):
         """
         return f"{obj.first_name} {obj.last_name}"
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name', 'description']
-
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
@@ -132,25 +127,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         enrollment = Enrollment.objects.create(user=user, course=course)
         return enrollment
    
-class CourseSerializer(serializers.ModelSerializer):
-    category = CategorySerializer()  # Nested Category
-    lessons = LessonSerializer(many=True)  # Nested Lessons
-    enrollments = serializers.SerializerMethodField()  # Use SerializerMethodField for enrollments
-    instructor = InstructorSerializer()  # Nested Instructor
 
-    class Meta:
-        model = Course
-        fields = [
-            'id', 'title', 'description', 'course_image', 'created_at',
-            'category', 'lessons', 'instructor', 'enrollments'
-        ]
-
-    def get_enrollments(self, obj):
-        """
-        Method to retrieve enrollments for the course.
-        """
-        enrollments = Enrollment.objects.filter(course=obj)
-        return EnrollmentSerializer(enrollments, many=True).data
 
 class CourseProgressSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)  # User ID to mark progress
@@ -277,16 +254,60 @@ class TakeQuizSerializer(serializers.Serializer):
             'correct_answers': correct_count
         }
 
+class GradeRequestSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True)
+    course_id = serializers.IntegerField(required=True)
+
 class GradeSerializer(serializers.ModelSerializer):
-    quiz = QuizSerializer(read_only=True)  # Nested serializer for quiz
-    exam = ExamSerializer(read_only=True)  # Nested serializer for exam
-    user = serializers.PrimaryKeyRelatedField(read_only=True)  # User ID
+    # Nested serializers for quiz and exam
+    quiz = QuizSerializer(read_only=True)
+    exam = ExamSerializer(read_only=True)
+
+    # Use PrimaryKeyRelatedField for user_id, as it's a foreign key
+    user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = Grade
-        fields = ['id', 'user', 'quiz', 'exam', 'score', 'total_score',] 
+        fields = ['id', 'user_id', 'quiz', 'exam', 'score', 'total_score']
+
+    # If you need course_id, it should come through quiz or exam if related
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Assuming course_id is related through quiz or exam
+        if instance.quiz:
+            representation['course_id'] = instance.quiz.course_id
+        elif instance.exam:
+            representation['course_id'] = instance.exam.course_id
+        return representation
 
 class UpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Update
         fields = ['id', 'title', 'content', 'author', 'cover_image', 'file', 'created_at', 'updated_at']
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())  # Foreign Key to Category    lessons = LessonSerializer(many=True)  # Nested Lessons
+    enrollments = serializers.SerializerMethodField()  # Use SerializerMethodField for enrollments
+    instructor = InstructorSerializer()  # Nested Instructor
+
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'title', 'description', 'course_image', 'created_at',
+            'category', 'lessons', 'instructor', 'enrollments'
+        ]
+
+    def get_enrollments(self, obj):
+        """
+        Method to retrieve enrollments for the course.
+        """
+        enrollments = Enrollment.objects.filter(course=obj)
+        return EnrollmentSerializer(enrollments, many=True).data
+    
+class CategorySerializer(serializers.ModelSerializer):
+    courses = CourseSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description', 'courses']

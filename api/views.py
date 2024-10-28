@@ -8,11 +8,11 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
-from .models import (Grade, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
+from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, Update)
 
-from .serializers import (AnswerSerializer, CourseProgressSerializer,
-                           EnrollmentSerializer, GradeSerializer, 
+from .serializers import (AnswerSerializer, CategorySerializer, CourseProgressSerializer,
+                           EnrollmentSerializer, GradeRequestSerializer, GradeSerializer, 
                           NotificationSerializer, QuizDetailSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
                            QuizSerializer,QuestionSerializer, ChangePasswordSerializer, LoginSerializer)
@@ -149,6 +149,7 @@ class CourseListView(ListAPIView):
 
 class CourseDetailView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
+    queryset = Course.objects.all()  # Define the queryset
     serializer_class = CourseSerializer
 
     def get(self, request, pk, *args, **kwargs):
@@ -418,40 +419,40 @@ class TakeQuizAPIView(generics.CreateAPIView):
         return Response(result, status=status.HTTP_201_CREATED)
 
 class UserGradeListView(APIView):
-    # No authentication or permissions applied
+    def post(self, request, *args, **kwargs):
+        # Use the GradeRequestSerializer to validate the incoming JSON data
+        serializer = GradeRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request, course_id, *args, **kwargs):
-        # Get the user_id from the request data
-        user_id = request.data.get('user_id')
-
-        # Check if user_id is provided in the request
-        if not user_id:
-            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        # Get validated data
+        user_id = serializer.validated_data['user_id']
+        course_id = serializer.validated_data['course_id']
 
         try:
             # Fetch the user by the provided user_id
             user = User.objects.get(pk=user_id)
-            
-            # Get all grades for quizzes and exams associated with the course
-            # Assuming that Grade model has 'quiz', 'exam', and 'course_id' fields
+
+            # Fetch quiz and exam grades for the specific course
             quiz_grades = Grade.objects.filter(user=user, quiz__course_id=course_id)
             exam_grades = Grade.objects.filter(user=user, exam__course_id=course_id)
 
-            # Combine the grades from both quizzes and exams
+            # Combine quiz and exam grades
             all_grades = list(quiz_grades) + list(exam_grades)
 
-            # Check if any grades exist
+            # Return a message if no grades are found
             if not all_grades:
-                return Response({"message": "No grades found for this course's quizzes or exams."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Serialize the combined grade data
-            serializer = GradeSerializer(all_grades, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response({"message": "No grades found for this course."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Serialize and return the grades
+            grade_serializer = GradeSerializer(all_grades, many=True)
+            return Response(grade_serializer.data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-# Notification View
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationSerializer
@@ -469,3 +470,14 @@ class UpdateListView(generics.ListCreateAPIView):
 class UpdateDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Update.objects.all()
     serializer_class = UpdateSerializer
+
+
+# ListCreateAPIView for listing all categories or creating a new one
+class CategoryListCreateView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+# RetrieveUpdateDestroyAPIView for retrieving, updating, or deleting a specific category
+class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer

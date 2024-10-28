@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    CategoryDetailView,
+    CategoryListCreateView,
     ChangePasswordView,
     CompleteLessonAPIView,
     CourseCreateView,
@@ -46,8 +48,10 @@ urlpatterns = [
     path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
     path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
     path('courses/<int:course_id>/courseprogress/mark-completed/', CourseProgressView.as_view(), name='courseprogress-mark-completed'),
-    path('courses/<int:course_id>/grades/', UserGradeListView.as_view(), name='user-grades'),
+    path('courses/grades/', UserGradeListView.as_view(), name='user-grades'),
     path('courses/search/', CourseSearchView.as_view(), name='course-search'),
+    path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
+    path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed
