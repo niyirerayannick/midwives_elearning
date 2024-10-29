@@ -41,6 +41,7 @@ from .views import (
     UserGradeListView,
     UserProfileView,
 )
+from api import views
 
 
 urlpatterns = [
@@ -48,7 +49,7 @@ urlpatterns = [
     path('auth/login/', RegistrationNumberAuthToken.as_view(), name='login'),
     path('auth/register/', AdminUserCreateView.as_view(), name='register'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
-    path('auth/user/profile/', UserProfileView.as_view(), name='user-profile'),
+    path('auth/profile/<int:user_id>/', UserProfileView.as_view(), name='user-profile'),
     # Course-related endpoints
     path('courses/', CourseListView.as_view(), name='course-list'),
     path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),
@@ -62,6 +63,7 @@ urlpatterns = [
     path('courses/search/', CourseSearchView.as_view(), name='course-search'),
     path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
+    path('courses/<int:course_id>/quizzes/', views.get_quiz_by_course, name='get_quiz_by_course'),
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),

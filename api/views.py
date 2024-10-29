@@ -143,13 +143,24 @@ class ChangePasswordView(GenericAPIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+from rest_framework.exceptions import NotFound
 class UserProfileView(generics.RetrieveUpdateAPIView):
     queryset = HealthProviderUser.objects.all()
     serializer_class = UserSerializer
 
     def get_object(self):
-        # Assuming the user ID is provided in the token (JWT, etc.)
-        return self.request.user
+        # Retrieve user ID from the URL
+        user_id = self.kwargs.get("user_id")
+        
+        # Check if user_id is None or the user doesn't exist
+        if user_id is None:
+            raise NotFound("User ID is required in the request data.")
+        
+        try:
+            # Attempt to fetch the user by ID
+            return HealthProviderUser.objects.get(id=user_id)
+        except HealthProviderUser.DoesNotExist:
+            raise NotFound("User not found.")
 
 # Course Views
 class CourseListView(ListAPIView):
@@ -553,3 +564,17 @@ class TakeExamView(generics.CreateAPIView):
         # Handle exam taking logic
         # You can retrieve the exam and process user answers
         return Response({"message": "Exam submitted successfully."})
+    
+from rest_framework.decorators import api_view
+
+@api_view(['GET'])
+def get_quiz_by_course(request, course_id):
+    try:
+        quizzes = Quiz.objects.filter(course_id=course_id)
+        if not quizzes.exists():
+            return Response({"detail": "No quizzes found for this course."}, status=404)
+        
+        serializer = QuizSerializer(quizzes, many=True)
+        return Response(serializer.data, status=200)
+    except Quiz.DoesNotExist:
+        return Response({"error": "Course not found."}, status=404)
