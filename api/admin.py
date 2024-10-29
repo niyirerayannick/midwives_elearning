@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    HealthProviderUser, Category, Course, Lesson, Quiz, Question, Answer, Update, Exam, Certificate, Enrollment, Progress, Grade, Notification
+    HealthProviderUser, Category, Course, Lesson, Quiz, Question, Answer, Update, Exam, Certificate, Enrollment, Progress, Grade, Notification,Skill
 )
 from django.contrib.auth.admin import UserAdmin
 
@@ -126,3 +126,4 @@ class UpdateAdmin(admin.ModelAdmin):
     prepopulated_fields = {'title': ('content',)}  # Automatically fill the title field based on the content (optional)
 
 admin.site.register(Update, UpdateAdmin)
+admin.site.register(Skill)
