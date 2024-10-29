@@ -149,23 +149,8 @@ JAZZMIN_SETTINGS = {
     "site_title": "MUBERAGURUGO ADMIN",
     "site_header": "MUBERAGURUGO",
     "site_brand": "MUBERAGURUGO",
-    "site_logo": 'assets/logo.png',
-    "login_logo": 'assets/logo.png',
-    "copyright": "MUBERAGURUGO Ltd",
-    
-    # Optional settings
-    "site_icon": "assets/logo.png",  # Icon shown in the admin
-    "welcome_sign": "Welcome to the MUBERAGURUGO Admin",  # Welcome message for the admin dashboard
-    "show_sidebar": True,  # Show the sidebar on the admin page
-    "navigation_expanded": True,  # Expand the navigation bar by default
-    "icons": {
-        "auth": "fas fa-user",  # Example of adding icons to the 'auth' app
-        "app": "fas fa-cogs",  # Custom icon for your app
-        # Add more icons for other models or apps as needed
-    },
-    "custom_css": "assets/custom.css",  # Path to custom CSS file for further styling
-    "custom_js": "assets/custom.js",  # Path to custom JavaScript file for interactivity
-    "collapse_menu": True,  # Collapse the sidebar by default
-    "show_ui_builder": False,  # Enable or disable the UI builder
+    "site_logo": "/image/logo.png",
+    "login_logo": None,
+    "copyright": "MUBERAGURUGO Ltd",   
 }
 
