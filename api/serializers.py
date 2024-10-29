@@ -300,12 +300,13 @@ class CourseSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())  # Foreign Key to Category    lessons = LessonSerializer(many=True)  # Nested Lessons
     enrollments = serializers.SerializerMethodField()  # Use SerializerMethodField for enrollments
     instructor = InstructorSerializer()  # Nested Instructor
+    skills = SkillSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
         fields = [
             'id', 'title', 'description', 'course_image', 'created_at',
-            'category', 'lessons', 'instructor', 'enrollments'
+            'category', 'lessons', 'instructor', 'enrollments','skills'
         ]
 
     def get_enrollments(self, obj):
@@ -317,6 +318,7 @@ class CourseSerializer(serializers.ModelSerializer):
     
 class CategorySerializer(serializers.ModelSerializer):
     courses = CourseSerializer(many=True, read_only=True)
+    
 
     class Meta:
         model = Category
