@@ -1,10 +1,10 @@
 from tokenize import Comment
-from .models import Skill, Update, Comment, Like
+from .models import ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question,
-                      Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, UserAnswer)
+                      Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, QuizUserAnswer,ExamUserAnswer)
 
 User = get_user_model()
 
@@ -106,6 +106,7 @@ class SkillSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
         
 class CourseBasicSerializer(serializers.ModelSerializer):
+    skills = SkillSerializer(many=True, read_only=True)
     class Meta:
         model = Course  # Assuming this is your course model
         fields = [
@@ -179,11 +180,6 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['id', 'user', 'message', 'created_at', 'is_read']
 
-class QuizSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Quiz
-        fields = ['id', 'course', 'title', 'total_marks']
-        
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
@@ -195,25 +191,32 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = ['id', 'quiz', 'text','is_multiple_choice','answers']
 
-class QuizDetailSerializer(serializers.ModelSerializer):
-    # course = CourseSerializer(read_only=True)  # Nested CourseSerializer
-    questions = QuestionSerializer(many=True, read_only=True)
+class QuizSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)  # Nested questions
 
     class Meta:
         model = Quiz
-        fields = ['id', 'title', 'total_marks','questions']
+        fields = ['id', 'course', 'title', 'total_marks', 'questions']
+        
 
 class ExamSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)  # Nested questions
+
     class Meta:
         model = Exam
-        fields = ['id', 'course', 'title', 'total_marks']
+        fields = ['id', 'course', 'title', 'total_marks', 'questions']
 
-class UserAnswerSerializer(serializers.Serializer):
+class ExamUserAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamUserAnswer
+        fields = ['user', 'exam', 'question', 'selected_answer', 'is_correct']
+
+class QuizUserAnswerSerializer(serializers.Serializer):
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
     selected_choice = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
 
 class TakeQuizSerializer(serializers.Serializer):
-    answers = UserAnswerSerializer(many=True)
+    answers = QuizUserAnswerSerializer(many=True)
 
     def validate(self, data):
         answers = data['answers']
@@ -240,7 +243,7 @@ class TakeQuizSerializer(serializers.Serializer):
             selected_choice = answer['selected_choice']
             is_correct = selected_choice.is_correct
 
-            user_answer, created = UserAnswer.objects.update_or_create(
+            user_answer, created = QuizUserAnswer.objects.update_or_create(
                 user=user,
                 question=question,
                 defaults={
@@ -331,3 +334,5 @@ class LikeSerializer(serializers.ModelSerializer):
         model = Like
         fields = ['id', 'update', 'user', 'created_at']
         read_only_fields = ['id', 'user', 'created_at', 'update']
+
+

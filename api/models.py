@@ -155,14 +155,6 @@ class Answer(models.Model):
     def __str__(self):
         return f"{self.text} ({'Correct' if self.is_correct else 'Incorrect'})"
 
-class UserAnswer(models.Model):
-    user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    selected_choice = models.ForeignKey(Answer, on_delete=models.CASCADE)
-    is_correct = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = ('user', 'question')
 
 class Exam(models.Model):
     course = models.ForeignKey(Course, related_name='exams', on_delete=models.CASCADE)
@@ -222,7 +214,6 @@ class Grade(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.course} - {self.score}/{self.total_score}"
-
 # Notification Model
 class Notification(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='notifications', on_delete=models.CASCADE)
@@ -251,7 +242,6 @@ class Update(models.Model):
     def total_comments(self):
         return self.comments.count()
 
-
 class Comment(models.Model):
     update = models.ForeignKey(Update, related_name='comments', on_delete=models.CASCADE)
     author = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
@@ -260,7 +250,6 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'Comment by {self.author} on {self.update}'
-
 
 class Like(models.Model):
     update = models.ForeignKey(Update, related_name='likes', on_delete=models.CASCADE)
@@ -272,3 +261,30 @@ class Like(models.Model):
 
     def __str__(self):
         return f'{self.user} likes {self.update}'
+    
+
+class ExamUserAnswer(models.Model):
+    user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)  # Linking to Question directly or you can change it to Exam's questions
+    selected_answer = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'exam', 'question')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.exam.title} - Question: {self.question.text}"
+
+class QuizUserAnswer(models.Model):
+    user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)  # Linking to Question directly or you can change it to Quiz's questions
+    selected_answer = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'quiz', 'question')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.quiz.title} - Question: {self.question.text}"

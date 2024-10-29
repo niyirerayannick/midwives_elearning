@@ -1,8 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    HealthProviderUser, Category, Course, Lesson, Quiz, Question, Answer, Update,
-    UserAnswer, Exam, Certificate, Enrollment, Progress, Grade, Notification
+    HealthProviderUser, Category, Course, Lesson, Quiz, Question, Answer, Update, Exam, Certificate, Enrollment, Progress, Grade, Notification
 )
 from django.contrib.auth.admin import UserAdmin
 

@@ -9,12 +9,12 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
-from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
+from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, Skill, Update, Comment)
 
 from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
-                           EnrollmentSerializer, GradeRequestSerializer, GradeSerializer, 
-                          NotificationSerializer, QuizDetailSerializer, SkillSerializer, TakeQuizSerializer, UpdateSerializer,  
+                           EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
+                          NotificationSerializer, SkillSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
                            QuizSerializer,QuestionSerializer, ChangePasswordSerializer, LoginSerializer)
 User = get_user_model()
@@ -247,7 +247,7 @@ class QuizListView(GenericAPIView):
     
 class QuizDetailView(generics.RetrieveAPIView):
     queryset = Quiz.objects.all()
-    serializer_class = QuizDetailSerializer
+    serializer_class = QuizSerializer
     
 class QuizCreateView(CreateAPIView):
     queryset = Quiz.objects.all()
@@ -535,3 +535,21 @@ class SkillListCreateView(generics.ListCreateAPIView):
 class SkillRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Skill.objects.all()
     serializer_class = SkillSerializer
+
+class ExamListCreateView(generics.ListCreateAPIView):
+    queryset = Exam.objects.all()
+    serializer_class = ExamSerializer
+
+# View to retrieve, update, or delete a single exam
+class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Exam.objects.all()
+    serializer_class = ExamSerializer
+
+class TakeExamView(generics.CreateAPIView):
+    queryset = ExamUserAnswer.objects.all()
+    serializer_class = ExamUserAnswerSerializer
+
+    def post(self, request, exam_id, *args, **kwargs):
+        # Handle exam taking logic
+        # You can retrieve the exam and process user answers
+        return Response({"message": "Exam submitted successfully."})
