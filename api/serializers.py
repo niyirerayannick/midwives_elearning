@@ -213,7 +213,8 @@ class ExamUserAnswerSerializer(serializers.ModelSerializer):
 
 class QuizUserAnswerSerializer(serializers.Serializer):
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
-    selected_choice = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
+    selected_answer = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
+
 
 class TakeQuizSerializer(serializers.Serializer):
     answers = QuizUserAnswerSerializer(many=True)
@@ -222,6 +223,7 @@ class TakeQuizSerializer(serializers.Serializer):
         answers = data['answers']
         quiz = self.context['quiz']
 
+        # Ensure all questions in answers are part of the quiz
         question_ids = set(quiz.questions.values_list('id', flat=True))
         for answer in answers:
             question_id = answer['question'].id
@@ -238,31 +240,38 @@ class TakeQuizSerializer(serializers.Serializer):
         correct_count = 0
         total_questions = len(answers)
 
+        # Create or update each answer and calculate the score
         for answer in answers:
             question = answer['question']
-            selected_choice = answer['selected_choice']
-            is_correct = selected_choice.is_correct
+            selected_answer = answer['selected_answer']
+            is_correct = selected_answer.is_correct
 
+            # Create or update the user's answer for this question
             user_answer, created = QuizUserAnswer.objects.update_or_create(
                 user=user,
                 question=question,
+                quiz=quiz,  # Ensures `quiz_id` is populated
                 defaults={
-                    'selected_choice': selected_choice,
+                    'selected_answer': selected_answer,
                     'is_correct': is_correct
                 }
             )
 
+            # Track correct answers
             if is_correct:
                 correct_count += 1
 
+        # Calculate score as a percentage
         score = (correct_count / total_questions) * 100
 
+        # Return the quiz results
         return {
             'quiz_id': quiz.id,
             'score': score,
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
+
 
 class GradeRequestSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)

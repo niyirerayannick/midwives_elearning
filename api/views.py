@@ -10,7 +10,7 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
-                     Exam, Certificate, Enrollment, Progress, Notification, Skill, Update, Comment)
+                     Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
 
 from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
@@ -417,25 +417,31 @@ class TakeQuizAPIView(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         quiz_id = self.kwargs.get('quiz_id')
         user_id = request.data.get('user_id')
+        retake = request.data.get('retake', False)  # Optional retake parameter, defaults to False
 
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        user = get_object_or_404(User, id=user_id)
+        quiz = get_object_or_404(Quiz, id=quiz_id)
 
-        try:
-            quiz = Quiz.objects.get(id=quiz_id)
-        except Quiz.DoesNotExist:
-            return Response({"error": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Check if the user has already taken the quiz
+        existing_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz)
+        if existing_answers.exists():
+            if not retake:
+                return Response(
+                    {"message": "Quiz already taken. Use retake option to attempt again."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            else:
+                # If retake is true, delete previous answers
+                existing_answers.delete()
 
-        # Pass the user and quiz to the serializer
+        # Proceed with creating new answers
         serializer = self.get_serializer(data=request.data, context={'request': request, 'quiz': quiz, 'user': user})
         serializer.is_valid(raise_exception=True)
+        
         result = serializer.save()
-
         return Response(result, status=status.HTTP_201_CREATED)
 
 class UserGradeListView(APIView):
