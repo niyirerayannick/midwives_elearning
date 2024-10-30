@@ -519,7 +519,13 @@ class CommentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         update_id = self.kwargs['update_id']
         update = get_object_or_404(Update, id=update_id)
-        serializer.save(author=self.request.user, update=update)
+
+        # Get user_id from request data
+        user_id = self.request.data.get('user_id')
+        user = get_object_or_404(HealthProviderUser, id=user_id)  # Fetch user by user_id
+
+        serializer.save(author=user, update=update)
+
 
 class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CommentSerializer
@@ -528,12 +534,12 @@ class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         update_id = self.kwargs['update_id']
         return Comment.objects.filter(update_id=update_id)
 
-# Like or unlike an update
 class LikeUpdateView(APIView):
 
     def post(self, request, update_id):
         update = get_object_or_404(Update, id=update_id)
-        user = request.user
+        user_id = request.data.get('user_id')  # Get user_id from request data
+        user = get_object_or_404(HealthProviderUser, id=user_id)  # Fetch user by user_id
 
         # Check if the user has already liked this update
         like, created = Like.objects.get_or_create(update=update, user=user)
