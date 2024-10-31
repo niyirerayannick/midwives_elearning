@@ -300,6 +300,7 @@ class GradeSerializer(serializers.ModelSerializer):
         return representation
 
 class UpdateSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
     class Meta:
         model = Update
         fields = ['id', 'title', 'content', 'author', 'cover_image', 'file', 'created_at', 'updated_at']
@@ -334,6 +335,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'courses']
 
 class CommentSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
     class Meta:
         model = Comment
         fields = ['id', 'update', 'author', 'content', 'created_at']
@@ -341,6 +343,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class LikeSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
     class Meta:
         model = Like
         fields = ['id', 'update', 'user', 'created_at']
