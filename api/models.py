@@ -106,7 +106,13 @@ def validate_audio_file(value):
     if not value.name.endswith(('.mp3', '.wav', '.aac')):
         raise ValidationError("Only audio files (.mp3, .wav, .aac) are allowed.")
 
+class OneTimePassword(models.Model):
+    user = models.OneToOneField(HealthProviderUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
 
+    def __str__(self):
+        return f"{self.user.first_name} - otp code"
+    
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name="Lesson Title", help_text="The title of the lesson")
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE, verbose_name="Related Course")

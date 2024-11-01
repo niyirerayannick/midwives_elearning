@@ -17,6 +17,7 @@ from .views import (
     ExamRetrieveUpdateDeleteView,
     LessonDetailView,
     LikeUpdateView,
+    PasswordResetConfirmView,
     QuizDetailView,
     RegistrationNumberAuthToken,
     AdminUserCreateView,
@@ -31,6 +32,7 @@ from .views import (
     QuizCreateView,   # Uncommented if needed
     QuizUpdateView,   # Uncommented if needed
     QuizDeleteView,
+    SendOtpForPasswordResetView,
     SkillListCreateView,
     SkillRetrieveUpdateDestroyView,
     TakeExamView,
@@ -40,6 +42,7 @@ from .views import (
     UserEnrolledCoursesAPIView,
     UserGradeListView,
     UserProfileView,
+    VerifyOtpView,
 )
 from api import views
 
@@ -50,6 +53,9 @@ urlpatterns = [
     path('auth/register/', AdminUserCreateView.as_view(), name='register'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('auth/profile/<int:user_id>/', UserProfileView.as_view(), name='user-profile'),
+    path('auth/send-otp/', SendOtpForPasswordResetView.as_view(), name='send-otp'),
+    path('auth/verify-otp/', VerifyOtpView.as_view(), name='verify-otp'),
+    path('auth/reset-password/', PasswordResetConfirmView.as_view(), name='reset-password'),
     # Course-related endpoints
     path('courses/', CourseListView.as_view(), name='course-list'),
     path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),

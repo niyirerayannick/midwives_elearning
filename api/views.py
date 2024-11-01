@@ -2,13 +2,14 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
 from rest_framework.generics import (GenericAPIView, ListAPIView, CreateAPIView, 
-                                     UpdateAPIView, DestroyAPIView,RetrieveAPIView)
+                                     UpdateAPIView, DestroyAPIView,RetrieveAPIView,RetrieveAPIView)
 from rest_framework.mixins import CreateModelMixin
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveAPIView
+from .serializers import VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer
+from .utils import send_otp_to_email_and_sms
 from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
 
@@ -590,3 +591,39 @@ def get_quiz_by_course(request, course_id):
         return Response(serializer.data, status=200)
     except Quiz.DoesNotExist:
         return Response({"error": "Course not found."}, status=404)
+
+
+class SendOtpForPasswordResetView(APIView):
+    """
+    Sends an OTP to the user's email and phone for password reset.
+    """
+    def post(self, request):
+        registration_number = request.data.get("registration_number")
+        if not registration_number:
+            return Response({"error": "Registration number is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_message = send_otp_to_email_and_sms(registration_number, request)
+        return Response({"message": response_message}, status=status.HTTP_200_OK)
+
+
+class VerifyOtpView(APIView):
+    """
+    Verifies if the OTP entered by the user is valid.
+    """
+    def post(self, request):
+        serializer = VerifyPasswordResetOtpSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response({"message": "OTP is valid. Proceed to set a new password."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Handles confirmation of OTP and password reset.
+    """
+    def post(self, request):
+        serializer = SetNewPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()  # This will reset the user's password
+            return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

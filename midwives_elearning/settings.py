@@ -145,6 +145,24 @@ MEDIA_URL = '/media/'  # Make sure to also set MEDIA_URL
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'api.HealthProviderUser'
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'bwengeorg@gmail.com'
+EMAIL_HOST_PASSWORD = 'uvmy fodq jycu inhn' 
+#orsu rfjj cyuk cmdq # Use an App password if 2FA is enabled
+EMAIL_PORT = 587
+DEFAULT_FROM_EMAIL = 'bwengeorg@gmail.com'
+
+# settings.py
+
+import os
+
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
+
+
 JAZZMIN_SETTINGS = {
     "site_title": "MUBERAGURUGO ADMIN",
     "site_header": "MUBERAGURUGO",

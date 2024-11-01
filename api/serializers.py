@@ -3,10 +3,11 @@ from .models import ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
-from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question,
+from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question,OneTimePassword,
                       Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, QuizUserAnswer,ExamUserAnswer)
 
 User = get_user_model()
+from django.contrib.auth.hashers import make_password
 
 class UserSerializer(serializers.ModelSerializer):
     registration_number = serializers.CharField(
@@ -350,3 +351,51 @@ class LikeSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'update']
 
 
+class VerifyPasswordResetOtpSerializer(serializers.Serializer):
+    registration_number = serializers.CharField(max_length=50)
+    otp = serializers.CharField(max_length=6)
+
+    def validate(self, data):
+        registration_number = data.get("registration_number")
+        otp = data.get("otp")
+
+        try:
+            user = HealthProviderUser.objects.get(registration_number=registration_number)
+            otp_obj = OneTimePassword.objects.filter(user=user, otp=otp).first()
+            if not otp_obj:
+                raise serializers.ValidationError("Invalid OTP.")
+        except HealthProviderUser.DoesNotExist:
+            raise serializers.ValidationError("User does not exist.")
+        
+        return data
+
+
+class SetNewPasswordSerializer(serializers.Serializer):
+    registration_number = serializers.CharField(max_length=50)
+    otp = serializers.CharField(max_length=6)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        registration_number = data.get("registration_number")
+        otp = data.get("otp")
+
+        try:
+            user = HealthProviderUser.objects.get(registration_number=registration_number)
+            otp_obj = OneTimePassword.objects.filter(user=user, otp=otp).first()
+            if not otp_obj:
+                raise serializers.ValidationError("Invalid OTP.")
+        except HealthProviderUser.DoesNotExist:
+            raise serializers.ValidationError("User does not exist.")
+        
+        return data
+    
+    def save(self):
+        registration_number = self.validated_data.get("registration_number")
+        new_password = self.validated_data.get("new_password")
+        
+        user = HealthProviderUser.objects.get(registration_number=registration_number)
+        user.password = make_password(new_password)
+        user.save()
+
+        # Optionally, delete OTP after successful password reset
+        OneTimePassword.objects.filter(user=user).delete()
