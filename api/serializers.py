@@ -108,6 +108,7 @@ class SkillSerializer(serializers.ModelSerializer):
         
 class CourseBasicSerializer(serializers.ModelSerializer):
     skills = SkillSerializer(many=True, read_only=True)
+    instructor = InstructorSerializer()  
     class Meta:
         model = Course  # Assuming this is your course model
         fields = [
