@@ -9,7 +9,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from .serializers import VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer
-from .utils import send_otp_to_email_and_sms
+from .utils import send_otp_to_email
 from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
 
@@ -602,7 +602,7 @@ class SendOtpForPasswordResetView(APIView):
         if not registration_number:
             return Response({"error": "Registration number is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        response_message = send_otp_to_email_and_sms(registration_number, request)
+        response_message = send_otp_to_email(registration_number, request)
         return Response({"message": response_message}, status=status.HTTP_200_OK)
 
 
