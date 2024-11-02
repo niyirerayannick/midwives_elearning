@@ -401,8 +401,30 @@ class CourseProgressView(generics.UpdateAPIView):
         item_type = serializer.validated_data['type']
         item_id = serializer.validated_data['item_id']
 
-        # Update progress for the specified user and course
-        progress.update_progress(item_type, item_id)
+        # Check item existence based on type
+        if item_type == 'lesson':
+            lesson = get_object_or_404(Lesson, id=item_id, course_id=course_id)
+
+            # Check if the lesson is already marked as completed
+            if progress.completed_lessons.filter(id=lesson.id).exists():
+                return Response({'message': 'You have already completed this lesson!'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Mark lesson as completed in progress
+            progress.completed_lessons.add(lesson)
+
+        elif item_type == 'quiz':
+            quiz = get_object_or_404(Quiz, id=item_id, course_id=course_id)
+
+            # Check if the quiz is already marked as completed
+            if progress.completed_quizzes.filter(id=quiz.id).exists():
+                return Response({'message': 'You have already completed this quiz!'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Mark quiz as completed in progress
+            progress.completed_quizzes.add(quiz)
+
+        else:
+            return Response({'error': 'Invalid item type'}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({'message': f'{item_type.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
 
 class TakeQuizAPIView(generics.CreateAPIView):
@@ -672,12 +694,7 @@ class PasswordResetConfirmView(APIView):
             serializer.save()  # This will reset the user's password
             return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.utils import timezone
-from .models import Certificate, Grade
-from .serializers import CertificateSerializer
+
 
 class CertificateListView(APIView):
     def post(self, request, *args, **kwargs):

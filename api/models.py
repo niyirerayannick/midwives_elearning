@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import BaseUserManager
 
+
 class HealthProviderUserManager(BaseUserManager):
     def create_superuser(self, registration_number, password=None, **extra_fields):
         """
@@ -209,21 +210,22 @@ class Enrollment(models.Model):
 class Progress(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
-    completed_lessons = models.JSONField(default=list)  # Store completed lesson IDs
-    completed_quizzes = models.JSONField(default=list)  # Store completed quiz IDs
+    completed_lessons = models.ManyToManyField(Lesson, related_name='progressed_lessons', blank=True)
+    completed_quizzes = models.ManyToManyField(Quiz, related_name='progressed_quizzes', blank=True)
     total_lessons = models.IntegerField()
 
     def __str__(self):
         return f"{self.user.registration_number}'s progress in {self.course.title}"
-    
+
     def update_progress(self, item_type, item_id):
         if item_type == 'lesson':
-            if item_id not in self.completed_lessons:
-                self.completed_lessons.append(item_id)
+            lesson = Lesson.objects.get(id=item_id)
+            self.completed_lessons.add(lesson)  # Add lesson to the many-to-many relationship
         elif item_type == 'quiz':
-            if item_id not in self.completed_quizzes:
-                self.completed_quizzes.append(item_id)
+            quiz = Quiz.objects.get(id=item_id)
+            self.completed_quizzes.add(quiz)  # Add quiz to the many-to-many relationship
         self.save()
+
 # Notification Model
 class Notification(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='notifications', on_delete=models.CASCADE)

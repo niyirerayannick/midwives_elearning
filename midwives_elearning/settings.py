@@ -77,6 +77,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'midwives_elearning.wsgi.application'
 
 
+
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -153,7 +154,7 @@ EMAIL_HOST_PASSWORD = 'uvmy fodq jycu inhn'
 #orsu rfjj cyuk cmdq # Use an App password if 2FA is enabled
 EMAIL_PORT = 587
 DEFAULT_FROM_EMAIL = 'bwengeorg@gmail.com'
-
+AUTH_USER_MODEL = 'api.HealthProviderUser'
 # settings.py
 
 import os
