@@ -19,7 +19,6 @@ class HealthProviderUserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self._db)
         return user
-
 class HealthProviderUser(AbstractUser):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
@@ -69,20 +68,17 @@ class HealthProviderUser(AbstractUser):
 
     def __str__(self):
         return f"{self.registration_number} - {self.get_role_display()}"
-
 class Category(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
-    
 class Skill(models.Model):
     name = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.name
-    
+        return self.name 
 class Course(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
@@ -95,24 +91,20 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
-
 def validate_video_file(value):
     # Remove file size check, only check for allowed extensions
     if not value.name.endswith(('.mp4', '.avi', '.mkv', '.mov')):
         raise ValidationError("Only video files (.mp4, .avi, .mkv, .mov) are allowed.")
-
 def validate_audio_file(value):
     # Remove file size check, only check for allowed extensions
     if not value.name.endswith(('.mp3', '.wav', '.aac')):
         raise ValidationError("Only audio files (.mp3, .wav, .aac) are allowed.")
-
 class OneTimePassword(models.Model):
     user = models.OneToOneField(HealthProviderUser, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6)
 
     def __str__(self):
         return f"{self.user.first_name} - otp code"
-    
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name="Lesson Title", help_text="The title of the lesson")
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE, verbose_name="Related Course")
@@ -136,7 +128,6 @@ class Lesson(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super(Lesson, self).save(*args, **kwargs)
-
 class Quiz(models.Model):
     course = models.ForeignKey(Course, related_name='quizzes', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -144,7 +135,6 @@ class Quiz(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
-
 class Question(models.Model):
     quiz = models.ForeignKey(Quiz, related_name='questions', on_delete=models.CASCADE)
     text = models.CharField(max_length=500)
@@ -152,7 +142,6 @@ class Question(models.Model):
 
     def __str__(self):
         return self.text
-
 class Answer(models.Model):
     question = models.ForeignKey(Question, related_name='answers', on_delete=models.CASCADE)
     text = models.CharField(max_length=500)
@@ -160,8 +149,6 @@ class Answer(models.Model):
 
     def __str__(self):
         return f"{self.text} ({'Correct' if self.is_correct else 'Incorrect'})"
-
-
 class Exam(models.Model):
     course = models.ForeignKey(Course, related_name='exams', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
@@ -169,7 +156,20 @@ class Exam(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
+class Grade(models.Model):
+    user = models.ForeignKey(HealthProviderUser, related_name='grades', on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, related_name='grades', on_delete=models.CASCADE)
+    quiz = models.ForeignKey(Quiz, related_name='grades', null=True, blank=True, on_delete=models.SET_NULL)
+    exam = models.ForeignKey(Exam, related_name='grades', null=True, blank=True, on_delete=models.SET_NULL)
+    score = models.DecimalField(max_digits=5, decimal_places=2)  # The score achieved
+    total_score = models.IntegerField()  # The total possible score
 
+    @property
+    def percentage(self):
+        return (self.score / self.total_score) * 100 if self.total_score > 0 else 0
+
+    def __str__(self):
+        return f"{self.user} - {self.course} - {self.score}/{self.total_score}"
 class Certificate(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='certificates', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='certificates', on_delete=models.CASCADE)
@@ -178,7 +178,6 @@ class Certificate(models.Model):
 
     def __str__(self):
         return f"Certificate for {self.user.username} - {self.course.title}"
-
 class Enrollment(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='enrollments', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='enrollments', on_delete=models.CASCADE)
@@ -186,7 +185,6 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.user.username} enrolled in {self.course.title}"
-
 class Progress(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
@@ -205,21 +203,6 @@ class Progress(models.Model):
             if item_id not in self.completed_quizzes:
                 self.completed_quizzes.append(item_id)
         self.save()
-
-class Grade(models.Model):
-    user = models.ForeignKey(HealthProviderUser, related_name='grades', on_delete=models.CASCADE)
-    course = models.ForeignKey(Course, related_name='grades', on_delete=models.CASCADE)
-    quiz = models.ForeignKey(Quiz, related_name='grades', null=True, blank=True, on_delete=models.SET_NULL)
-    exam = models.ForeignKey(Exam, related_name='grades', null=True, blank=True, on_delete=models.SET_NULL)
-    score = models.DecimalField(max_digits=5, decimal_places=2)  # The score achieved
-    total_score = models.IntegerField()  # The total possible score
-
-    @property
-    def percentage(self):
-        return (self.score / self.total_score) * 100 if self.total_score > 0 else 0
-
-    def __str__(self):
-        return f"{self.user} - {self.course} - {self.score}/{self.total_score}"
 # Notification Model
 class Notification(models.Model):
     user = models.ForeignKey('HealthProviderUser', related_name='notifications', on_delete=models.CASCADE)
@@ -229,7 +212,6 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.registration_number}"
-
 class Update(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
@@ -247,7 +229,6 @@ class Update(models.Model):
 
     def total_comments(self):
         return self.comments.count()
-
 class Comment(models.Model):
     update = models.ForeignKey(Update, related_name='comments', on_delete=models.CASCADE)
     author = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
@@ -256,7 +237,6 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'Comment by {self.author} on {self.update}'
-
 class Like(models.Model):
     update = models.ForeignKey(Update, related_name='likes', on_delete=models.CASCADE)
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
@@ -267,8 +247,6 @@ class Like(models.Model):
 
     def __str__(self):
         return f'{self.user} likes {self.update}'
-    
-
 class ExamUserAnswer(models.Model):
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
@@ -281,7 +259,6 @@ class ExamUserAnswer(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.exam.title} - Question: {self.question.text}"
-
 class QuizUserAnswer(models.Model):
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)

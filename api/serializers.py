@@ -1,4 +1,6 @@
 from tokenize import Comment
+
+from django.shortcuts import get_object_or_404
 from .models import ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
@@ -217,21 +219,18 @@ class QuizUserAnswerSerializer(serializers.Serializer):
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
     selected_answer = serializers.PrimaryKeyRelatedField(queryset=Answer.objects.all())
 
-
 class TakeQuizSerializer(serializers.Serializer):
-    answers = QuizUserAnswerSerializer(many=True)
+    answers = serializers.JSONField()  # Assumes answers will be passed as JSON
 
     def validate(self, data):
         answers = data['answers']
         quiz = self.context['quiz']
-
-        # Ensure all questions in answers are part of the quiz
         question_ids = set(quiz.questions.values_list('id', flat=True))
-        for answer in answers:
-            question_id = answer['question'].id
-            if question_id not in question_ids:
-                raise serializers.ValidationError("Invalid question in answers.")
 
+        for answer in answers:
+            question = answer['question']
+            if question not in question_ids:
+                raise serializers.ValidationError("Invalid question in answers.")
         return data
 
     def create(self, validated_data):
@@ -242,31 +241,21 @@ class TakeQuizSerializer(serializers.Serializer):
         correct_count = 0
         total_questions = len(answers)
 
-        # Create or update each answer and calculate the score
         for answer in answers:
             question = answer['question']
             selected_answer = answer['selected_answer']
-            is_correct = selected_answer.is_correct
+            question = get_object_or_404(Question, id=question)
+            selected_answer = get_object_or_404(Answer, id=selected_answer)
 
-            # Create or update the user's answer for this question
-            user_answer, created = QuizUserAnswer.objects.update_or_create(
-                user=user,
-                question=question,
-                quiz=quiz,  # Ensures `quiz_id` is populated
-                defaults={
-                    'selected_answer': selected_answer,
-                    'is_correct': is_correct
-                }
-            )
-
-            # Track correct answers
-            if is_correct:
+            # Check if the selected answer is correct
+            if selected_answer.is_correct:
                 correct_count += 1
 
-        # Calculate score as a percentage
         score = (correct_count / total_questions) * 100
 
-        # Return the quiz results
+        # Save the user's grade
+        Grade.objects.create(user=user, course=quiz.course, quiz=quiz, score=score, total_score=quiz.total_marks)
+
         return {
             'quiz_id': quiz.id,
             'score': score,
@@ -274,32 +263,21 @@ class TakeQuizSerializer(serializers.Serializer):
             'correct_answers': correct_count
         }
 
-
 class GradeRequestSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
     course_id = serializers.IntegerField(required=True)
 
+class QuizSerializer_Grade(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = ['id', 'course', 'title', 'total_marks', 'questions']
+
 class GradeSerializer(serializers.ModelSerializer):
-    # Nested serializers for quiz and exam
-    quiz = QuizSerializer(read_only=True)
-    exam = ExamSerializer(read_only=True)
-
-    # Use PrimaryKeyRelatedField for user_id, as it's a foreign key
-    user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-
+    quiz = QuizSerializer_Grade(read_only=True)
     class Meta:
         model = Grade
-        fields = ['id', 'user_id', 'quiz', 'exam', 'score', 'total_score']
+        fields = ['id', 'user', 'quiz', 'score', 'total_score']
 
-    # If you need course_id, it should come through quiz or exam if related
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        # Assuming course_id is related through quiz or exam
-        if instance.quiz:
-            representation['course_id'] = instance.quiz.course_id
-        elif instance.exam:
-            representation['course_id'] = instance.exam.course_id
-        return representation
 
 class UpdateSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)

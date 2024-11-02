@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 from rest_framework.generics import (GenericAPIView, ListAPIView, CreateAPIView, 
                                      UpdateAPIView, DestroyAPIView,RetrieveAPIView,RetrieveAPIView)
 from rest_framework.mixins import CreateModelMixin
@@ -8,25 +9,21 @@ from django.contrib.auth import authenticate, get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
-from .serializers import VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer
 from .utils import send_otp_to_email
 from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
-
 from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
                           NotificationSerializer, SkillSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
-                           QuizSerializer,QuestionSerializer, ChangePasswordSerializer, LoginSerializer)
+                           QuizSerializer,QuestionSerializer,VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer,ChangePasswordSerializer, LoginSerializer)
 User = get_user_model()
 # Admin-only view for creating new users
 class AdminUserCreateView(GenericAPIView, CreateModelMixin):
     serializer_class = UserSerializer
     # permission_classes = [permissions.IsAdminUser]
-
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
-
 # Custom login using registration number and password
 class RegistrationNumberAuthToken(GenericAPIView):
     serializer_class = LoginSerializer
@@ -144,7 +141,6 @@ class ChangePasswordView(GenericAPIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework.exceptions import NotFound
 class UserProfileView(generics.RetrieveUpdateAPIView):
     queryset = HealthProviderUser.objects.all()
     serializer_class = UserSerializer
@@ -162,7 +158,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             return HealthProviderUser.objects.get(id=user_id)
         except HealthProviderUser.DoesNotExist:
             raise NotFound("User not found.")
-
 # Course Views
 class CourseListView(ListAPIView):
     queryset = Course.objects.all()
@@ -185,12 +180,10 @@ class CourseDetailView(GenericAPIView):
 class CourseCreateView(CreateAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-
 # View for updating a course
 class CourseUpdateView(UpdateAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-
 # View for deleting a course
 class CourseDeleteView(DestroyAPIView):
     queryset = Course.objects.all()
@@ -411,75 +404,108 @@ class CourseProgressView(generics.UpdateAPIView):
         progress.update_progress(item_type, item_id)
         return Response({'message': f'{item_type.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
 
-
 class TakeQuizAPIView(generics.CreateAPIView):
     serializer_class = TakeQuizSerializer
 
     def post(self, request, *args, **kwargs):
         quiz_id = self.kwargs.get('quiz_id')
         user_id = request.data.get('user_id')
-        retake = request.data.get('retake', False)  # Optional retake parameter, defaults to False
+        retake = request.data.get('retake', False)  # Default to False if not provided
 
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_object_or_404(User, id=user_id)
+        user = get_object_or_404(HealthProviderUser, id=user_id)
         quiz = get_object_or_404(Quiz, id=quiz_id)
 
         # Check if the user has already taken the quiz
         existing_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz)
+        
+        # Debug statement to check existing answers
+        print(f"Existing answers for user {user_id} and quiz {quiz_id}: {existing_answers.exists()}")
+
         if existing_answers.exists():
-            if not retake:
+            if not retake:  # If retake is False, block the attempt
                 return Response(
                     {"message": "Quiz already taken. Use retake option to attempt again."},
                     status=status.HTTP_409_CONFLICT
                 )
             else:
-                # If retake is true, delete previous answers
+                # If retake is true, delete previous answers and grade
+                print("User opted to retake the quiz. Deleting previous answers and grades.")
                 existing_answers.delete()
+                Grade.objects.filter(user=user, quiz=quiz).delete()
 
         # Proceed with creating new answers
         serializer = self.get_serializer(data=request.data, context={'request': request, 'quiz': quiz, 'user': user})
         serializer.is_valid(raise_exception=True)
-        
+
+        # Save the user's answers
         result = serializer.save()
+
+        # Calculate the score and save or update the user's grade
+        score = self.calculate_score(user, quiz)
+        total_marks = quiz.total_marks
+
+        # Create or update the grade
+        Grade.objects.update_or_create(
+            user=user,
+            course=quiz.course,
+            quiz=quiz,
+            defaults={'score': score, 'total_score': total_marks}
+        )
+
         return Response(result, status=status.HTTP_201_CREATED)
 
+    def calculate_score(self, user, quiz):
+        correct_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz, is_correct=True).count()
+        return correct_answers  # Adjust based on your grading scheme
+
 class UserGradeListView(APIView):
+    queryset = Grade.objects.all()  # Define the queryset for grades
+
     def post(self, request, *args, **kwargs):
-        # Use the GradeRequestSerializer to validate the incoming JSON data
         serializer = GradeRequestSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get validated data
         user_id = serializer.validated_data['user_id']
         course_id = serializer.validated_data['course_id']
 
         try:
-            # Fetch the user by the provided user_id
             user = User.objects.get(pk=user_id)
+            course = Course.objects.get(pk=course_id)
 
             # Fetch quiz and exam grades for the specific course
-            quiz_grades = Grade.objects.filter(user=user, quiz__course_id=course_id)
-            exam_grades = Grade.objects.filter(user=user, exam__course_id=course_id)
+            quiz_grades = self.queryset.filter(user=user, quiz__course=course)
+            exam_grades = self.queryset.filter(user=user, exam__course=course)
 
             # Combine quiz and exam grades
             all_grades = list(quiz_grades) + list(exam_grades)
 
-            # Return a message if no grades are found
             if not all_grades:
-                return Response({"message": "No grades found for this course."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {
+                        "message": "No grades found for this course.",
+                        "user_id": user_id,
+                        "course_id": course_id
+                    }, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            # Serialize and return the grades
             grade_serializer = GradeSerializer(all_grades, many=True)
             return Response(grade_serializer.data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationSerializer
