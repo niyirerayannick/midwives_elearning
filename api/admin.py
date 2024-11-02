@@ -1,10 +1,19 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
-    HealthProviderUser, Category, Skill, Course, Lesson, Quiz, Question, Answer,
+    ExamAnswer, ExamQuestion, HealthProviderUser, Category, Skill, Course, Lesson, Quiz, Question, Answer,
     Exam, Certificate, Enrollment, Progress, Grade, Notification, Update, 
     Comment, Like, ExamUserAnswer, QuizUserAnswer
 )
+@admin.register(ExamQuestion)
+class ExamQuestionAdmin(admin.ModelAdmin):
+    list_display = ('text', 'exam', 'is_multiple_choice')
+
+
+@admin.register(ExamAnswer)
+class ExamAnswerAdmin(admin.ModelAdmin):
+    list_display = ('text', 'question', 'is_correct')
+
 
 class HealthProviderUserAdmin(BaseUserAdmin):
     fieldsets = (

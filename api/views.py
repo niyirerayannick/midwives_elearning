@@ -475,23 +475,19 @@ class UserGradeListView(APIView):
             course = Course.objects.get(pk=course_id)
 
             # Fetch quiz and exam grades for the specific course
-            quiz_grades = self.queryset.filter(user=user, quiz__course=course)
-            exam_grades = self.queryset.filter(user=user, exam__course=course)
+            grades = self.queryset.filter(user=user, course=course)
 
-            # Combine quiz and exam grades
-            all_grades = list(quiz_grades) + list(exam_grades)
-
-            if not all_grades:
+            if not grades.exists():
                 return Response(
                     {
                         "message": "No grades found for this course.",
                         "user_id": user_id,
                         "course_id": course_id
-                    }, 
+                    },
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            grade_serializer = GradeSerializer(all_grades, many=True)
+            grade_serializer = GradeSerializer(grades, many=True)
             return Response(grade_serializer.data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
@@ -502,7 +498,6 @@ class UserGradeListView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
@@ -599,7 +594,7 @@ class TakeExamAPIView(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         exam_id = self.kwargs.get('exam_id')
         user_id = request.data.get('user_id')
-        retake = request.data.get('retake', False)  # Optional retake parameter
+        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking
 
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -629,24 +624,7 @@ class TakeExamAPIView(generics.CreateAPIView):
         # Save the user's answers
         result = serializer.save()
 
-        # Calculate the score and save or update the user's grade
-        score = self.calculate_score(user, exam)  # Function to calculate score based on saved answers
-        total_marks = exam.total_marks
-
-        # Create or update the grade
-        Grade.objects.update_or_create(
-            user=user,
-            course=exam.course,
-            exam=exam,
-            defaults={'score': score, 'total_score': total_marks}
-        )
-
         return Response(result, status=status.HTTP_201_CREATED)
-
-    def calculate_score(self, user, exam):
-        # Calculate the score based on the user's answers
-        correct_answers = ExamUserAnswer.objects.filter(user=user, exam=exam, is_correct=True).count()
-        return correct_answers  # Adjust based on your grading scheme
 
 from rest_framework.decorators import api_view
 

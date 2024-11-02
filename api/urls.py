@@ -94,7 +94,8 @@ urlpatterns = [
     
     path('exams/', ExamListCreateView.as_view(), name='exam-list-create'),
     path('exams/<int:pk>/', ExamRetrieveUpdateDeleteView.as_view(), name='exam-detail-update-delete'),
-     path('exams/<int:exam_id>/take/', TakeExamAPIView.as_view(), name='take-exam'),  # New endpoint for taking exams
+    path('exams/<int:exam_id>/take/', TakeExamAPIView.as_view(), name='take-exam'),
+    path('exams/<int:exam_id>/retake/', TakeExamAPIView.as_view(), name='retake-exam'),
 
     path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
     path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update

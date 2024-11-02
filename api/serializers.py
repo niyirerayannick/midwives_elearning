@@ -270,30 +270,42 @@ class QuizSerializer_Grade(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
+class ExamSerializer_Grade(serializers.ModelSerializer):
+    class Meta:
+        model = Exam
+        fields = ['id', 'course', 'title', 'total_marks']
 
 class GradeSerializer(serializers.ModelSerializer):
     quiz = QuizSerializer_Grade(read_only=True)
+    exam = ExamSerializer_Grade(read_only=True)
+
     class Meta:
         model = Grade
-        fields = ['id', 'user', 'quiz', 'score', 'total_score']
+        fields = ['id', 'user', 'quiz', 'exam', 'score', 'total_score']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Assuming course_id can be fetched through quiz or exam
+        if instance.quiz:
+            representation['course_id'] = instance.quiz.course_id
+        elif instance.exam:
+            representation['course_id'] = instance.exam.course_id
+        return representation
 
 from rest_framework import serializers
 from .models import ExamUserAnswer
-
 class TakeExamSerializer(serializers.Serializer):
-    answers = ExamUserAnswerSerializer(many=True)
+    answers = serializers.JSONField()  # Assumes answers will be passed as JSON
 
     def validate(self, data):
         answers = data['answers']
         exam = self.context['exam']
-
-        # Ensure all questions in answers are part of the exam
         question_ids = set(exam.questions.values_list('id', flat=True))
-        for answer in answers:
-            question_id = answer['question'].id
-            if question_id not in question_ids:
-                raise serializers.ValidationError("Invalid question in answers.")
 
+        for answer in answers:
+            question = answer['question']
+            if question not in question_ids:
+                raise serializers.ValidationError("Invalid question in answers.")
         return data
 
     def create(self, validated_data):
@@ -304,42 +316,45 @@ class TakeExamSerializer(serializers.Serializer):
         correct_count = 0
         total_questions = len(answers)
 
-        # Create or update each answer and calculate the score
         for answer in answers:
-            question = answer['question']
-            selected_answer = answer['selected_answer']
-            is_correct = selected_answer.is_correct
+            question_id = answer['question']
+            selected_answer_id = answer['selected_answer']
+
+            question = get_object_or_404(Question, id=question_id)
+            selected_answer = get_object_or_404(Answer, id=selected_answer_id)
+
+            # Check if the selected answer is correct
+            if selected_answer.is_correct:
+                correct_count += 1
 
             # Create or update the user's answer for this question
-            user_answer, created = ExamUserAnswer.objects.update_or_create(
+            ExamUserAnswer.objects.update_or_create(
                 user=user,
                 question=question,
-                exam=exam,  # Ensures `exam_id` is populated
+                exam=exam,
                 defaults={
                     'selected_answer': selected_answer,
-                    'is_correct': is_correct
+                    'is_correct': selected_answer.is_correct
                 }
             )
 
-            # Track correct answers
-            if is_correct:
-                correct_count += 1
-
-        # Calculate score as a percentage
+        # Calculate the score as a percentage
         score = (correct_count / total_questions) * 100
 
-        # Return the exam results
+        # Save the user's grade for the exam
+        Grade.objects.update_or_create(
+            user=user,
+            course=exam.course,
+            exam=exam,
+            defaults={'score': score, 'total_score': exam.total_marks}
+        )
+
         return {
             'exam_id': exam.id,
             'score': score,
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
-
-
-
-
-
 
 
 class UpdateSerializer(serializers.ModelSerializer):

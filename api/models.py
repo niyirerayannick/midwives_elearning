@@ -156,6 +156,23 @@ class Exam(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
+class ExamQuestion(models.Model):
+    exam = models.ForeignKey(Exam, related_name='questions', on_delete=models.CASCADE)
+    text = models.CharField(max_length=500)
+    is_multiple_choice = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
+
+
+class ExamAnswer(models.Model):
+    question = models.ForeignKey(ExamQuestion, related_name='answers', on_delete=models.CASCADE)
+    text = models.CharField(max_length=500)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.text} ({'Correct' if self.is_correct else 'Incorrect'})"
+
 class Grade(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='grades', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='grades', on_delete=models.CASCADE)
