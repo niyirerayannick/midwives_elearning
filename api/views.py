@@ -14,7 +14,7 @@ from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
 from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
-                          NotificationSerializer, SkillSerializer, TakeQuizSerializer, UpdateSerializer,  
+                          NotificationSerializer, SkillSerializer, TakeExamSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
                            QuizSerializer,QuestionSerializer,VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer,ChangePasswordSerializer, LoginSerializer)
 User = get_user_model()
@@ -410,30 +410,27 @@ class TakeQuizAPIView(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         quiz_id = self.kwargs.get('quiz_id')
         user_id = request.data.get('user_id')
-        retake = request.data.get('retake', False)  # Default to False if not provided
+        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking
 
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_object_or_404(HealthProviderUser, id=user_id)
+        user = get_object_or_404(User, id=user_id)
         quiz = get_object_or_404(Quiz, id=quiz_id)
 
         # Check if the user has already taken the quiz
         existing_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz)
-        
-        # Debug statement to check existing answers
-        print(f"Existing answers for user {user_id} and quiz {quiz_id}: {existing_answers.exists()}")
-
         if existing_answers.exists():
-            if not retake:  # If retake is False, block the attempt
+            if not retake:
                 return Response(
                     {"message": "Quiz already taken. Use retake option to attempt again."},
                     status=status.HTTP_409_CONFLICT
                 )
             else:
-                # If retake is true, delete previous answers and grade
-                print("User opted to retake the quiz. Deleting previous answers and grades.")
+                # If retake is true, delete previous answers
                 existing_answers.delete()
+
+                # Also delete the previous grade
                 Grade.objects.filter(user=user, quiz=quiz).delete()
 
         # Proceed with creating new answers
@@ -444,7 +441,7 @@ class TakeQuizAPIView(generics.CreateAPIView):
         result = serializer.save()
 
         # Calculate the score and save or update the user's grade
-        score = self.calculate_score(user, quiz)
+        score = self.calculate_score(user, quiz)  # Function to calculate score based on saved answers
         total_marks = quiz.total_marks
 
         # Create or update the grade
@@ -458,6 +455,7 @@ class TakeQuizAPIView(generics.CreateAPIView):
         return Response(result, status=status.HTTP_201_CREATED)
 
     def calculate_score(self, user, quiz):
+        # Calculate the score based on the user's answers
         correct_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz, is_correct=True).count()
         return correct_answers  # Adjust based on your grading scheme
 
@@ -595,15 +593,61 @@ class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
 
-class TakeExamView(generics.CreateAPIView):
-    queryset = ExamUserAnswer.objects.all()
-    serializer_class = ExamUserAnswerSerializer
+class TakeExamAPIView(generics.CreateAPIView):
+    serializer_class = TakeExamSerializer
 
-    def post(self, request, exam_id, *args, **kwargs):
-        # Handle exam taking logic
-        # You can retrieve the exam and process user answers
-        return Response({"message": "Exam submitted successfully."})
-    
+    def post(self, request, *args, **kwargs):
+        exam_id = self.kwargs.get('exam_id')
+        user_id = request.data.get('user_id')
+        retake = request.data.get('retake', False)  # Optional retake parameter
+
+        if not user_id:
+            return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=user_id)
+        exam = get_object_or_404(Exam, id=exam_id)
+
+        # Check if the user has already taken the exam
+        existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
+        if existing_answers.exists():
+            if not retake:
+                return Response(
+                    {"message": "Exam already taken. Use retake option to attempt again."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            else:
+                # If retake is true, delete previous answers
+                existing_answers.delete()
+
+                # Also delete the previous grade
+                Grade.objects.filter(user=user, exam=exam).delete()
+
+        # Proceed with creating new answers
+        serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
+        serializer.is_valid(raise_exception=True)
+
+        # Save the user's answers
+        result = serializer.save()
+
+        # Calculate the score and save or update the user's grade
+        score = self.calculate_score(user, exam)  # Function to calculate score based on saved answers
+        total_marks = exam.total_marks
+
+        # Create or update the grade
+        Grade.objects.update_or_create(
+            user=user,
+            course=exam.course,
+            exam=exam,
+            defaults={'score': score, 'total_score': total_marks}
+        )
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+    def calculate_score(self, user, exam):
+        # Calculate the score based on the user's answers
+        correct_answers = ExamUserAnswer.objects.filter(user=user, exam=exam, is_correct=True).count()
+        return correct_answers  # Adjust based on your grading scheme
+
 from rest_framework.decorators import api_view
 
 @api_view(['GET'])

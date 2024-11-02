@@ -140,7 +140,6 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         return enrollment
    
 
-
 class CourseProgressSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)  # User ID to mark progress
     type = serializers.ChoiceField(choices=['lesson', 'quiz'], required=True)  # Type of item
@@ -277,6 +276,70 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = ['id', 'user', 'quiz', 'score', 'total_score']
+
+from rest_framework import serializers
+from .models import ExamUserAnswer
+
+class TakeExamSerializer(serializers.Serializer):
+    answers = ExamUserAnswerSerializer(many=True)
+
+    def validate(self, data):
+        answers = data['answers']
+        exam = self.context['exam']
+
+        # Ensure all questions in answers are part of the exam
+        question_ids = set(exam.questions.values_list('id', flat=True))
+        for answer in answers:
+            question_id = answer['question'].id
+            if question_id not in question_ids:
+                raise serializers.ValidationError("Invalid question in answers.")
+
+        return data
+
+    def create(self, validated_data):
+        exam = self.context['exam']
+        user = self.context['user']
+        answers = validated_data['answers']
+
+        correct_count = 0
+        total_questions = len(answers)
+
+        # Create or update each answer and calculate the score
+        for answer in answers:
+            question = answer['question']
+            selected_answer = answer['selected_answer']
+            is_correct = selected_answer.is_correct
+
+            # Create or update the user's answer for this question
+            user_answer, created = ExamUserAnswer.objects.update_or_create(
+                user=user,
+                question=question,
+                exam=exam,  # Ensures `exam_id` is populated
+                defaults={
+                    'selected_answer': selected_answer,
+                    'is_correct': is_correct
+                }
+            )
+
+            # Track correct answers
+            if is_correct:
+                correct_count += 1
+
+        # Calculate score as a percentage
+        score = (correct_count / total_questions) * 100
+
+        # Return the exam results
+        return {
+            'exam_id': exam.id,
+            'score': score,
+            'total_questions': total_questions,
+            'correct_answers': correct_count
+        }
+
+
+
+
+
 
 
 class UpdateSerializer(serializers.ModelSerializer):

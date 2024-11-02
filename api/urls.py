@@ -35,7 +35,7 @@ from .views import (
     SendOtpForPasswordResetView,
     SkillListCreateView,
     SkillRetrieveUpdateDestroyView,
-    TakeExamView,
+    TakeExamAPIView,
     TakeQuizAPIView,
     UpdateDetailView,
     UpdateListView,
@@ -88,12 +88,13 @@ urlpatterns = [
     path('quizzes/create/', QuizCreateView.as_view(), name='quiz-create'),  # Create a new quiz
     path('quizzes/<int:pk>/', QuizDetailView.as_view(), name='quiz-detail'),  # Retrieve quiz details by ID
     path('quizzes/<int:quiz_id>/take/', TakeQuizAPIView.as_view(), name='take-quiz'),
+    path('quizzes/<int:quiz_id>/retake/', TakeQuizAPIView.as_view(), name='retake-quiz'),  # New endpoint for retaking the quiz
     path('quizzes/<int:pk>/update/', QuizUpdateView.as_view(), name='quiz-update'),  # Update a quiz
     path('quizzes/<int:pk>/delete/', QuizDeleteView.as_view(), name='quiz-delete'),  # Delete a quiz
     
     path('exams/', ExamListCreateView.as_view(), name='exam-list-create'),
     path('exams/<int:pk>/', ExamRetrieveUpdateDeleteView.as_view(), name='exam-detail-update-delete'),
-    path('exams/<int:exam_id>/take/',TakeExamView.as_view(), name='take_exam'),
+     path('exams/<int:exam_id>/take/', TakeExamAPIView.as_view(), name='take-exam'),  # New endpoint for taking exams
 
     path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
     path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update
