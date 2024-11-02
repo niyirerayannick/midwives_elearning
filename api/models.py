@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import BaseUserManager
@@ -187,30 +188,33 @@ class Grade(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.course} - {self.score}/{self.total_score}"
+
 class Certificate(models.Model):
-    user = models.ForeignKey('HealthProviderUser', related_name='certificates', on_delete=models.CASCADE)
-    course = models.ForeignKey(Course, related_name='certificates', on_delete=models.CASCADE)
-    date_issued = models.DateField(auto_now_add=True)
-    certificate_file = models.FileField(upload_to='certificates/', null=True, blank=True)
+    user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE,null=True, blank=True)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
+    issued_date = models.DateField(default=timezone.now)
 
     def __str__(self):
-        return f"Certificate for {self.user.username} - {self.course.title}"
+        return f"Certificate for {self.user.registration_number} in {self.course.title} on {self.issued_date}"
+
 class Enrollment(models.Model):
-    user = models.ForeignKey('HealthProviderUser', related_name='enrollments', on_delete=models.CASCADE)
+    user = models.ForeignKey(HealthProviderUser, related_name='enrollments', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='enrollments', on_delete=models.CASCADE)
     date_enrolled = models.DateField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.username} enrolled in {self.course.title}"
+        return f"{self.user.registration_number} enrolled in {self.course.title}"
+    
 class Progress(models.Model):
-    user = models.ForeignKey('HealthProviderUser', related_name='progress', on_delete=models.CASCADE)
+    user = models.ForeignKey(HealthProviderUser, related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
     completed_lessons = models.JSONField(default=list)  # Store completed lesson IDs
     completed_quizzes = models.JSONField(default=list)  # Store completed quiz IDs
     total_lessons = models.IntegerField()
 
     def __str__(self):
-        return f"{self.user.username}'s progress in {self.course.title}"
+        return f"{self.user.registration_number}'s progress in {self.course.title}"
     
     def update_progress(self, item_type, item_id):
         if item_type == 'lesson':

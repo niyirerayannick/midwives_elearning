@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
@@ -12,7 +13,7 @@ from rest_framework.views import APIView
 from .utils import send_otp_to_email
 from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment)
-from .serializers import (AnswerSerializer, CategorySerializer, CommentSerializer, CourseProgressSerializer,
+from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
                           NotificationSerializer, SkillSerializer, TakeExamSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
@@ -508,7 +509,6 @@ class NotificationView(GenericAPIView):
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data)
 
-
 class UpdateListView(generics.ListCreateAPIView):
     queryset = Update.objects.all()
     serializer_class = UpdateSerializer
@@ -545,7 +545,6 @@ class CommentListCreateView(generics.ListCreateAPIView):
         user = get_object_or_404(HealthProviderUser, id=user_id)  # Fetch user by user_id
 
         serializer.save(author=user, update=update)
-
 
 class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CommentSerializer
@@ -640,7 +639,6 @@ def get_quiz_by_course(request, course_id):
     except Quiz.DoesNotExist:
         return Response({"error": "Course not found."}, status=404)
 
-
 class SendOtpForPasswordResetView(APIView):
     """
     Sends an OTP to the user's email and phone for password reset.
@@ -652,7 +650,6 @@ class SendOtpForPasswordResetView(APIView):
 
         response_message = send_otp_to_email(registration_number, request)
         return Response({"message": response_message}, status=status.HTTP_200_OK)
-
 
 class VerifyOtpView(APIView):
     """
@@ -675,3 +672,57 @@ class PasswordResetConfirmView(APIView):
             serializer.save()  # This will reset the user's password
             return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.utils import timezone
+from .models import Certificate, Grade
+from .serializers import CertificateSerializer
+
+class CertificateListView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        course_id = request.data.get('course_id')
+
+        if not user_id or not course_id:
+            return Response({"error": "user_id and course_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch grades for the user and course, filtering only exams
+        grades = Grade.objects.filter(user_id=user_id, course_id=course_id, exam__isnull=False)
+
+        if not grades.exists():
+            return Response({"error": "No grades found for this user and course."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter grades to find passing results
+        passing_grades = grades.filter(score__gte=80)
+
+        if not passing_grades.exists():
+            return Response({"message": "User has not passed any exams for this course."}, status=status.HTTP_403_FORBIDDEN)
+
+        certificates_data = []
+        
+        for grade in passing_grades:
+            # Avoid creating duplicates
+            existing_certificates = Certificate.objects.filter(
+                user=grade.user,
+                course=grade.course,
+                exam=grade.exam
+            )
+
+            if existing_certificates.exists():
+                continue
+
+            # Create the certificate
+            certificate_data = {
+                "user": grade.user.id,
+                "course": grade.course.id,
+                "exam": grade.exam.id,
+                "issued_date": timezone.now().date()
+            }
+
+            serializer = CertificateSerializer(data=certificate_data)
+            serializer.is_valid(raise_exception=True)
+            certificate_instance = serializer.save()
+            certificates_data.append(serializer.data)
+
+        return Response({"certificates": certificates_data}, status=status.HTTP_201_CREATED)

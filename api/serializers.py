@@ -101,8 +101,9 @@ class LessonSerializer(serializers.ModelSerializer):
 class CertificateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Certificate
-        fields = ['id', 'user', 'course', 'date_issued', 'certificate_file']
+        fields = ['user', 'course', 'exam', 'issued_date']
 
+    
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
@@ -457,3 +458,11 @@ class SetNewPasswordSerializer(serializers.Serializer):
 
         # Optionally, delete OTP after successful password reset
         OneTimePassword.objects.filter(user=user).delete()
+
+class CertificateSerializer(serializers.ModelSerializer):
+    exam = ExamSerializer(read_only=True)  # Nest the exam serializer
+    course = CourseSerializer(read_only=True)
+
+    class Meta:
+        model = Certificate
+        fields = ['id', 'user', 'exam', 'course', 'issued_date']  # Include all relevant fields

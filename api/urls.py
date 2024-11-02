@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     CategoryDetailView,
     CategoryListCreateView,
+    CertificateListView,
     ChangePasswordView,
     CommentListCreateView,
     CommentRetrieveUpdateDestroyView,
@@ -70,6 +71,7 @@ urlpatterns = [
     path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
     path('courses/<int:course_id>/quizzes/', views.get_quiz_by_course, name='get_quiz_by_course'),
+    path('courses/user/certificates/', CertificateListView.as_view(), name='certificate-list'),
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),

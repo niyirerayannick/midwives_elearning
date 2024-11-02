@@ -81,11 +81,6 @@ class ExamAdmin(admin.ModelAdmin):
     list_filter = ('course',)
     search_fields = ('title',)
 
-@admin.register(Certificate)
-class CertificateAdmin(admin.ModelAdmin):
-    list_display = ('user', 'course', 'date_issued')
-    list_filter = ('course', 'user')
-    search_fields = ('user__registration_number', 'course__title')
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
