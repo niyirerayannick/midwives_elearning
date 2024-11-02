@@ -312,6 +312,7 @@ class CourseSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())  # Foreign Key to Category    lessons = LessonSerializer(many=True)  # Nested Lessons
     enrollments = serializers.SerializerMethodField()  # Use SerializerMethodField for enrollments
     instructor = InstructorSerializer()  # Nested Instructor
+    lessons = LessonSerializer(many=True)  # Nested Lessons
     skills = SkillSerializer(many=True, read_only=True)
 
     class Meta:
