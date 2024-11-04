@@ -381,6 +381,7 @@ class CompleteLessonAPIView(generics.UpdateAPIView):
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
 
+
 class CourseProgressView(generics.UpdateAPIView):
     serializer_class = CourseProgressSerializer
 
@@ -660,6 +661,17 @@ def get_quiz_by_course(request, course_id):
         return Response(serializer.data, status=200)
     except Quiz.DoesNotExist:
         return Response({"error": "Course not found."}, status=404)
+    
+@api_view(['GET'])
+def get_exam_by_course(request, course_id):
+    exams = Exam.objects.filter(course_id=course_id)
+    if not exams.exists():
+        return Response({"detail": "No Exams found for this course."}, status=404)
+    
+    serializer = ExamSerializer(exams, many=True)
+    return Response(serializer.data, status=200)
+
+
 
 class SendOtpForPasswordResetView(APIView):
     """

@@ -1,13 +1,15 @@
 from tokenize import Comment
 
 from django.shortcuts import get_object_or_404
-from .models import ExamUserAnswer, Skill, Update, Comment, Like
+from .models import ExamQuestion, ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from .models import (Category, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question,OneTimePassword,
                       Answer, Exam, Certificate, Enrollment, Progress, Notification, Update, QuizUserAnswer,ExamUserAnswer)
 
+from rest_framework import serializers
+from .models import ExamUserAnswer
 User = get_user_model()
 from django.contrib.auth.hashers import make_password
 
@@ -103,7 +105,6 @@ class CertificateSerializer(serializers.ModelSerializer):
         model = Certificate
         fields = ['user', 'course', 'exam', 'issued_date']
 
-    
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
@@ -140,7 +141,6 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         enrollment = Enrollment.objects.create(user=user, course=course)
         return enrollment
    
-
 class CourseProgressSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)  # User ID to mark progress
     type = serializers.ChoiceField(choices=['lesson', 'quiz'], required=True)  # Type of item
@@ -202,9 +202,14 @@ class QuizSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
         
+class ExamQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamQuestion
+        fields = ['id', 'text', 'exam']  # Include all relevant fields
+
 
 class ExamSerializer(serializers.ModelSerializer):
-    questions = QuestionSerializer(many=True, read_only=True)  # Nested questions
+    questions = ExamQuestionSerializer(many=True, read_only=True)  # Use the correct serializer
 
     class Meta:
         model = Exam
@@ -271,6 +276,7 @@ class QuizSerializer_Grade(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
+
 class ExamSerializer_Grade(serializers.ModelSerializer):
     class Meta:
         model = Exam
@@ -293,8 +299,6 @@ class GradeSerializer(serializers.ModelSerializer):
             representation['course_id'] = instance.exam.course_id
         return representation
 
-from rest_framework import serializers
-from .models import ExamUserAnswer
 class TakeExamSerializer(serializers.Serializer):
     answers = serializers.JSONField()  # Assumes answers will be passed as JSON
 
@@ -357,13 +361,11 @@ class TakeExamSerializer(serializers.Serializer):
             'correct_answers': correct_count
         }
 
-
 class UpdateSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     class Meta:
         model = Update
         fields = ['id', 'title', 'content', 'author', 'cover_image', 'file', 'created_at', 'updated_at']
-
 
 class CourseSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())  # Foreign Key to Category    lessons = LessonSerializer(many=True)  # Nested Lessons
@@ -401,14 +403,12 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'update', 'author', 'content', 'created_at']
         read_only_fields = ['id', 'author', 'created_at', 'update']
 
-
 class LikeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     class Meta:
         model = Like
         fields = ['id', 'update', 'user', 'created_at']
         read_only_fields = ['id', 'user', 'created_at', 'update']
-
 
 class VerifyPasswordResetOtpSerializer(serializers.Serializer):
     registration_number = serializers.CharField(max_length=50)
@@ -427,7 +427,6 @@ class VerifyPasswordResetOtpSerializer(serializers.Serializer):
             raise serializers.ValidationError("User does not exist.")
         
         return data
-
 
 class SetNewPasswordSerializer(serializers.Serializer):
     registration_number = serializers.CharField(max_length=50)
