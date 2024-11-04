@@ -1,7 +1,7 @@
 from tokenize import Comment
 
 from django.shortcuts import get_object_or_404
-from .models import ExamQuestion, ExamUserAnswer, Skill, Update, Comment, Like
+from .models import ExamAnswer, ExamQuestion, ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
@@ -201,12 +201,16 @@ class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
-        
+class ExamAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamAnswer
+        fields = ['id', 'question', 'text', 'is_correct']
+       
 class ExamQuestionSerializer(serializers.ModelSerializer):
+    answers = ExamAnswerSerializer(many=True, read_only=True)  # Include answers
     class Meta:
         model = ExamQuestion
-        fields = ['id', 'text', 'exam']  # Include all relevant fields
-
+        fields = ['id', 'text', 'exam','answers']  # Include all relevant fields
 
 class ExamSerializer(serializers.ModelSerializer):
     questions = ExamQuestionSerializer(many=True, read_only=True)  # Use the correct serializer
@@ -216,6 +220,7 @@ class ExamSerializer(serializers.ModelSerializer):
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
 
 class ExamUserAnswerSerializer(serializers.ModelSerializer):
+    question = ExamQuestion()
     class Meta:
         model = ExamUserAnswer
         fields = ['user', 'exam', 'question', 'selected_answer', 'is_correct']
