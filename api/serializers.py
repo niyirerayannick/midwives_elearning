@@ -220,10 +220,13 @@ class ExamSerializer(serializers.ModelSerializer):
         fields = ['id', 'course', 'title', 'total_marks', 'questions']
 
 class ExamUserAnswerSerializer(serializers.ModelSerializer):
-    question = ExamQuestion()
+    question = serializers.PrimaryKeyRelatedField(queryset=ExamQuestion.objects.all())
+
     class Meta:
         model = ExamUserAnswer
         fields = ['user', 'exam', 'question', 'selected_answer', 'is_correct']
+
+
 
 class QuizUserAnswerSerializer(serializers.Serializer):
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
@@ -305,17 +308,25 @@ class GradeSerializer(serializers.ModelSerializer):
         return representation
 
 class TakeExamSerializer(serializers.Serializer):
-    answers = serializers.JSONField()  # Assumes answers will be passed as JSON
+    answers = serializers.ListField(
+        child=serializers.DictField(),  # Each answer should be a dictionary with keys 'question' and 'selected_answer'
+    )
 
     def validate(self, data):
         answers = data['answers']
         exam = self.context['exam']
         question_ids = set(exam.questions.values_list('id', flat=True))
 
+        # Debug: Print allowed question IDs for the exam
+        print("Allowed question IDs:", question_ids)
+
         for answer in answers:
-            question = answer['question']
+            question = answer.get('question')
+            if question is None:
+                raise serializers.ValidationError("Each answer must include a 'question' key.")
             if question not in question_ids:
-                raise serializers.ValidationError("Invalid question in answers.")
+                raise serializers.ValidationError(f"Invalid question ID: {question}.")
+
         return data
 
     def create(self, validated_data):
@@ -327,8 +338,11 @@ class TakeExamSerializer(serializers.Serializer):
         total_questions = len(answers)
 
         for answer in answers:
-            question_id = answer['question']
-            selected_answer_id = answer['selected_answer']
+            question_id = answer.get('question')
+            selected_answer_id = answer.get('selected_answer')
+
+            if question_id is None or selected_answer_id is None:
+                raise serializers.ValidationError("Each answer must include 'question' and 'selected_answer' keys.")
 
             question = get_object_or_404(Question, id=question_id)
             selected_answer = get_object_or_404(Answer, id=selected_answer_id)
