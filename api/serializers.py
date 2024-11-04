@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = User
+        model = HealthProviderUser
         fields = ['registration_number', 'first_name', 'last_name', 'email', 'telephone', 'date_of_birth', 'role', 'profile_image']
 
     def create(self, validated_data):
@@ -477,10 +477,20 @@ class SetNewPasswordSerializer(serializers.Serializer):
         # Optionally, delete OTP after successful password reset
         OneTimePassword.objects.filter(user=user).delete()
 
+class ExamUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = HealthProviderUser  # Ensure this points to your actual instructor model
+        fields = ['id', 'full_name', 'registration_number', 'email', 'telephone']
+
+
 class CertificateSerializer(serializers.ModelSerializer):
-    exam = ExamSerializer(read_only=True)  # Nest the exam serializer
+    exam = ExamSerializer(read_only=True)
     course = CourseSerializer(read_only=True)
+    user = UserSerializer(read_only=True)  # Assuming you want to output full user info
 
     class Meta:
         model = Certificate
-        fields = ['id', 'user', 'exam', 'course', 'issued_date']  # Include all relevant fields
+        fields = ['id', 'user', 'exam', 'course', 'issued_date']
+        extra_kwargs = {'user': {'required': False}}  # Set user to not required
+

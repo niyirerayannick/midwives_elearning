@@ -707,6 +707,12 @@ class PasswordResetConfirmView(APIView):
             return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.utils import timezone
+from .models import Grade, Certificate, HealthProviderUser  # Import your user model
+from .serializers import CertificateSerializer
 
 class CertificateListView(APIView):
     def post(self, request, *args, **kwargs):
@@ -716,42 +722,47 @@ class CertificateListView(APIView):
         if not user_id or not course_id:
             return Response({"error": "user_id and course_id are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch grades for the user and course, filtering only exams
-        grades = Grade.objects.filter(user_id=user_id, course_id=course_id, exam__isnull=False)
+        try:
+            # Fetch grades for the user and course, filtering only exams
+            grades = Grade.objects.filter(user_id=user_id, course_id=course_id, exam__isnull=False)
 
-        if not grades.exists():
-            return Response({"error": "No grades found for this user and course."}, status=status.HTTP_404_NOT_FOUND)
+            if not grades.exists():
+                return Response({"error": "No grades found for this user and course."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Filter grades to find passing results
-        passing_grades = grades.filter(score__gte=80)
+            # Filter grades to find passing results
+            passing_grades = grades.filter(score__gte=80)
 
-        if not passing_grades.exists():
-            return Response({"message": "User has not passed any exams for this course."}, status=status.HTTP_403_FORBIDDEN)
+            if not passing_grades.exists():
+                return Response({"message": "User has not passed any exams for this course."}, status=status.HTTP_403_FORBIDDEN)
 
-        certificates_data = []
-        
-        for grade in passing_grades:
-            # Avoid creating duplicates
-            existing_certificates = Certificate.objects.filter(
-                user=grade.user,
-                course=grade.course,
-                exam=grade.exam
-            )
+            certificates_data = []
 
-            if existing_certificates.exists():
-                continue
+            for grade in passing_grades:
+                # Avoid creating duplicates
+                existing_certificates = Certificate.objects.filter(
+                    user_id=user_id,
+                    course=grade.course,
+                    exam=grade.exam
+                )
 
-            # Create the certificate
-            certificate_data = {
-                "user": grade.user.id,
-                "course": grade.course.id,
-                "exam": grade.exam.id,
-                "issued_date": timezone.now().date()
-            }
+                if existing_certificates.exists():
+                    continue
 
-            serializer = CertificateSerializer(data=certificate_data)
-            serializer.is_valid(raise_exception=True)
-            certificate_instance = serializer.save()
-            certificates_data.append(serializer.data)
+                # Create the certificate data
+                certificate_data = {
+                    "user": grade.user.id,
+                    "course": grade.course.id,
+                    "exam": grade.exam.id,
+                    "issued_date": timezone.now().date()
+                }
 
-        return Response({"certificates": certificates_data}, status=status.HTTP_201_CREATED)
+                # Create the Certificate and assign the related objects
+                serializer = CertificateSerializer(data=certificate_data)
+                serializer.is_valid(raise_exception=True)
+                certificate_instance = serializer.save(user=HealthProviderUser.objects.get(id=user_id))
+                certificates_data.append(serializer.data)
+
+            return Response({"certificates": certificates_data}, status=status.HTTP_201_CREATED)
+
+        except HealthProviderUser.DoesNotExist:
+            return Response({"error": "Invalid user ID."}, status=status.HTTP_404_NOT_FOUND)

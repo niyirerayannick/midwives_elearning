@@ -167,6 +167,7 @@ class ExamQuestion(models.Model):
         return self.text
 
 
+
 class ExamAnswer(models.Model):
     question = models.ForeignKey(ExamQuestion, related_name='answers', on_delete=models.CASCADE)
     text = models.CharField(max_length=500)
