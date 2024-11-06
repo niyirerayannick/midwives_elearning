@@ -610,7 +610,6 @@ class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
 
-
 class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
@@ -641,8 +640,6 @@ class TakeExamAPIView(generics.CreateAPIView):
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)
-
-
 from rest_framework.decorators import api_view
 
 @api_view(['GET'])
