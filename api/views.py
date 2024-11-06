@@ -614,10 +614,11 @@ class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
     def post(self, request, *args, **kwargs):
-        exam_id = self.kwargs.get('exam_id')  # Get the exam ID from URL
-        user_id = request.data.get('user_id')  # Get user ID from request body
+        exam_id = self.kwargs.get('exam_id')
+        user_id = request.data.get('user_id')
         retake = request.path.endswith('retake/')  # Check if retake endpoint is used
 
+        # Ensure the user ID is provided
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -644,7 +645,6 @@ class TakeExamAPIView(generics.CreateAPIView):
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)
-
 
 from rest_framework.decorators import api_view
 
