@@ -614,10 +614,10 @@ class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
     def post(self, request, *args, **kwargs):
-        exam_id = self.kwargs.get('exam_id')  # Exam ID from URL
-        user_id = request.data.get('user_id')  # User ID from the request
+        exam_id = self.kwargs.get('exam_id')
+        user_id = request.data.get('user_id')
+        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking
 
-        # Check if user_id is provided in the request
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -627,16 +627,21 @@ class TakeExamAPIView(generics.CreateAPIView):
         # Check if the user has already taken the exam
         existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
         if existing_answers.exists():
-            return Response(
-                {"message": "Exam already taken."},
-                status=status.HTTP_409_CONFLICT
-            )
+            if not retake:
+                return Response(
+                    {"message": "Exam already taken. Use retake option to attempt again."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            else:
+                # If retake is true, delete previous answers and grades
+                existing_answers.delete()
+                Grade.objects.filter(user=user, exam=exam).delete()
 
-        # Proceed with creating new answers and calculating the score
+        # Proceed with creating new answers
         serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
         serializer.is_valid(raise_exception=True)
 
-        # Save answers and calculate the result
+        # Save the user's answers and calculate marks
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)

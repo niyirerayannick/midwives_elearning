@@ -315,9 +315,11 @@ class TakeExamSerializer(serializers.Serializer):
     def validate(self, data):
         answers = data['answers']
         exam = self.context['exam']
-        question_ids = set(exam.questions.values_list('id', flat=True))
+        question_ids = set(exam.questions.values_list('id', flat=True))  # All valid question IDs
 
-        # Ensure the question IDs are valid for this exam
+        # Debug: Print allowed question IDs for the exam
+        print("Allowed question IDs:", question_ids)
+
         for answer in answers:
             question_id = answer.get('question')
             selected_answer_id = answer.get('selected_answer')
@@ -325,8 +327,8 @@ class TakeExamSerializer(serializers.Serializer):
             if question_id not in question_ids:
                 raise serializers.ValidationError(f"Invalid question ID: {question_id}.")
             if selected_answer_id is None:
-                raise serializers.ValidationError("Each answer must include a selected_answer key.")
-        
+                raise serializers.ValidationError("Each answer must include 'selected_answer'.")
+
         return data
 
     def create(self, validated_data):
@@ -338,16 +340,15 @@ class TakeExamSerializer(serializers.Serializer):
         total_questions = len(answers)
 
         for answer in answers:
-            question_id = answer.get('question')  # question_id is used to get the question
-            selected_answer_id = answer.get('selected_answer')  # selected_answer_id is used to get the answer
+            question_id = answer.get('question')
+            selected_answer_id = answer.get('selected_answer')
 
-            # Ensure that question_id and selected_answer_id are valid
             if question_id is None or selected_answer_id is None:
-                raise serializers.ValidationError("Each answer must include 'question' and 'selected_answer' keys.")
+                raise serializers.ValidationError("Each answer must include 'question' and 'selected_answer'.")
 
-            # Retrieve the corresponding question and selected answer
-            question = get_object_or_404(ExamQuestion, id=question_id)  # Get the ExamQuestion instance
-            selected_answer = get_object_or_404(ExamAnswer, id=selected_answer_id, question=question)  # Get the selected ExamAnswer
+            # Retrieve question and answer using the IDs
+            question = get_object_or_404(ExamQuestion, id=question_id)
+            selected_answer = get_object_or_404(ExamAnswer, id=selected_answer_id, question=question)
 
             # Check if the selected answer is correct
             if selected_answer.is_correct:
@@ -364,10 +365,10 @@ class TakeExamSerializer(serializers.Serializer):
                 }
             )
 
-        # Calculate the score
+        # Calculate the score as a percentage
         score = (correct_count / total_questions) * 100
 
-        # Save or update the user's grade
+        # Save the user's grade for the exam
         Grade.objects.update_or_create(
             user=user,
             exam=exam,
@@ -380,7 +381,6 @@ class TakeExamSerializer(serializers.Serializer):
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
-
 class UpdateSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     class Meta:
