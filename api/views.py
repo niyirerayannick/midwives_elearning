@@ -610,14 +610,15 @@ class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
 
+
 class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
     def post(self, request, *args, **kwargs):
-        exam_id = self.kwargs.get('exam_id')
-        user_id = request.data.get('user_id')
-        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking
+        exam_id = self.kwargs.get('exam_id')  # Exam ID from URL
+        user_id = request.data.get('user_id')  # User ID from the request
 
+        # Check if user_id is provided in the request
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -627,26 +628,20 @@ class TakeExamAPIView(generics.CreateAPIView):
         # Check if the user has already taken the exam
         existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
         if existing_answers.exists():
-            if not retake:
-                return Response(
-                    {"message": "Exam already taken. Use retake option to attempt again."},
-                    status=status.HTTP_409_CONFLICT
-                )
-            else:
-                # If retake is true, delete previous answers
-                existing_answers.delete()
+            return Response(
+                {"message": "Exam already taken."},
+                status=status.HTTP_409_CONFLICT
+            )
 
-                # Also delete the previous grade
-                Grade.objects.filter(user=user, exam=exam).delete()
-
-        # Proceed with creating new answers
+        # Proceed with creating new answers and calculating the score
         serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
         serializer.is_valid(raise_exception=True)
 
-        # Save the user's answers
+        # Save answers and calculate the result
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)
+
 
 from rest_framework.decorators import api_view
 
@@ -766,3 +761,4 @@ class CertificateListView(APIView):
 
         except HealthProviderUser.DoesNotExist:
             return Response({"error": "Invalid user ID."}, status=status.HTTP_404_NOT_FOUND)
+

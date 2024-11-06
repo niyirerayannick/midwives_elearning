@@ -317,16 +317,16 @@ class TakeExamSerializer(serializers.Serializer):
         exam = self.context['exam']
         question_ids = set(exam.questions.values_list('id', flat=True))
 
-        # Debug: Print allowed question IDs for the exam
-        print("Allowed question IDs:", question_ids)
-
+        # Ensure the question IDs are valid for this exam
         for answer in answers:
             question = answer.get('question')
-            if question is None:
-                raise serializers.ValidationError("Each answer must include a 'question' key.")
+            selected_answer = answer.get('selected_answer')
+
             if question not in question_ids:
                 raise serializers.ValidationError(f"Invalid question ID: {question}.")
-
+            if selected_answer is None:
+                raise serializers.ValidationError("Each answer must include a selected_answer key.")
+        
         return data
 
     def create(self, validated_data):
@@ -341,17 +341,15 @@ class TakeExamSerializer(serializers.Serializer):
             question_id = answer.get('question')
             selected_answer_id = answer.get('selected_answer')
 
-            if question_id is None or selected_answer_id is None:
-                raise serializers.ValidationError("Each answer must include 'question' and 'selected_answer' keys.")
-
-            question = get_object_or_404(Question, id=question_id)
-            selected_answer = get_object_or_404(Answer, id=selected_answer_id)
+            # Get the question and selected answer
+            question = get_object_or_404(ExamQuestion, id=question_id)
+            selected_answer = get_object_or_404(ExamAnswer, id=selected_answer_id, question=question)
 
             # Check if the selected answer is correct
             if selected_answer.is_correct:
                 correct_count += 1
 
-            # Create or update the user's answer for this question
+            # Save or update the user's answer for this question
             ExamUserAnswer.objects.update_or_create(
                 user=user,
                 question=question,
@@ -362,13 +360,12 @@ class TakeExamSerializer(serializers.Serializer):
                 }
             )
 
-        # Calculate the score as a percentage
+        # Calculate score
         score = (correct_count / total_questions) * 100
 
-        # Save the user's grade for the exam
+        # Save or update the user's grade
         Grade.objects.update_or_create(
             user=user,
-            course=exam.course,
             exam=exam,
             defaults={'score': score, 'total_score': exam.total_marks}
         )
@@ -379,7 +376,6 @@ class TakeExamSerializer(serializers.Serializer):
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
-
 class UpdateSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     class Meta:
