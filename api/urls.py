@@ -45,6 +45,7 @@ from .views import (
     UserGradeListView,
     UserProfileView,
     VerifyOtpView,
+    complete_lesson,
 )
 from api import views
 
@@ -84,6 +85,8 @@ urlpatterns = [
     path('lessons/<int:id>/', LessonDetailView.as_view(), name='lesson-detail'),
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
+    path('lessons/<int:lesson_id>/complete/<int:user_id>/', complete_lesson, name='complete_lesson'),
+
 
     path('notifications/', NotificationView.as_view(), name='notification-list'),
 
@@ -95,12 +98,18 @@ urlpatterns = [
     path('quizzes/<int:quiz_id>/retake/', TakeQuizAPIView.as_view(), name='retake-quiz'),  # New endpoint for retaking the quiz
     path('quizzes/<int:pk>/update/', QuizUpdateView.as_view(), name='quiz-update'),  # Update a quiz
     path('quizzes/<int:pk>/delete/', QuizDeleteView.as_view(), name='quiz-delete'),  # Delete a quiz
-    
+    path('quizzes/<int:quiz_id>/<int:user_id>/complete/', views.complete_quiz, name='complete_quiz'),
+
     path('exams/', ExamListCreateView.as_view(), name='exam-list-create'),
     path('exams/<int:pk>/', ExamRetrieveUpdateDeleteView.as_view(), name='exam-detail-update-delete'),
-    path('exams/<int:exam_id>/take/', TakeExamAPIView.as_view(), name='take-exam'),
-    path('exams/<int:exam_id>/retake/', TakeExamAPIView.as_view(), name='retake-exam'),
-    path('exams/user/<int:user_id>/certificates/', UserCertificateListView.as_view(), name='user-certificates'),
+    # path('exams/<int:exam_id>/take/', views.TakeExamAPIView.as_view(), name='take_exam'),
+    # path('exams/<int:exam_id>/retake/', views.TakeExamAPIView.as_view(), name='retake_exam'),
+    path('exams/completing /exam/<int:exam_id>/complete/', views.complete_exam, name='complete_exam'),
+    # path('exams/user/<int:user_id>/certificates/', UserCertificateListView.as_view(), name='user-certificates'),
+    path('exams/<int:exam_id>/take/<int:user_id>/', views.take_exam, name='take_exam'),
+    path('exams/<int:exam_id>/submit/<int:user_id>/', views.submit_exam, name='submit_exam'),
+    path('exams/<int:exam_id>/certificate/<int:user_id>/', views.get_user_certificate, name='get_user_certificate'),
+
 
     path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
     path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update
@@ -111,9 +120,10 @@ urlpatterns = [
     path('updates/<int:update_id>/like/', LikeUpdateView.as_view(), name='like_update'),
 
     # Existing paths for completing lessons, quizzes, and exams
-    path('completing /lesson/<int:lesson_id>/complete/', views.complete_lesson, name='complete_lesson'),
-    path('completing /quiz/<int:quiz_id>/complete/', views.complete_quiz, name='complete_quiz'),
-    path('completing /exam/<int:exam_id>/complete/', views.complete_exam, name='complete_exam'),
+    
+    
+
+
 
     # New path for checking user progress in a course
     # path('yannick/course/<int:course_id>/progress/<int:user_id>/', views.get_course_progress, name='check_user_progress'),

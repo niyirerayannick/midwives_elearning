@@ -11,7 +11,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from .utils import send_otp_to_email
-from .models import (Category, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
+from .models import (Category, ExamAnswer, ExamQuestion, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment, UserExamProgress, UserLessonProgress, UserQuizProgress)
 from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CourseProgressSerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
@@ -616,7 +616,7 @@ class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
 
-class TakeExamAPIView(generics.CreateAPIView):
+class y_TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
     def post(self, request, *args, **kwargs):
@@ -631,16 +631,22 @@ class TakeExamAPIView(generics.CreateAPIView):
         exam = get_object_or_404(Exam, id=exam_id)
         course = exam.course  # Get the associated course from the exam
 
-        # Check if the user has completed all lessons and quizzes before taking the exam
-        progress = Progress.objects.filter(user=user, course=course).first()
-        if not progress:
-            return Response({"error": "Progress record not found for the user in this course."}, status=status.HTTP_404_NOT_FOUND)
+        # # Check if the user has completed all lessons and quizzes before taking the exam
+        # progress = Progress.objects.filter(user=user, course=course).first()
+        # if not progress:
+        #     return Response({"error": "Progress record not found for the user in this course."}, status=status.HTTP_404_NOT_FOUND)
 
-        if progress.completed_lessons.count() != course.lesson_set.count():
-            return Response({"error": "You must complete all lessons before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
+        # # Check if all lessons are completed
+        # total_lessons = course.lessons.count()
+        # completed_lessons = progress.completed_lessons.count()
+        # if completed_lessons != total_lessons:
+        #     return Response({"error": "You must complete all lessons before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
 
-        if progress.completed_quizzes.count() != course.quiz_set.count():
-            return Response({"error": "You must complete all quizzes before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
+        # # Check if all quizzes are completed
+        # total_quizzes = course.quizzes.count()
+        # completed_quizzes = progress.completed_quizzes.count()
+        # if completed_quizzes != total_quizzes:
+        #     return Response({"error": "You must complete all quizzes before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
 
         # Check if the user has already taken the exam
         existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
@@ -682,8 +688,75 @@ class TakeExamAPIView(generics.CreateAPIView):
         # For example, you could count the correct answers and calculate the score accordingly
         correct_answers = ExamUserAnswer.objects.filter(user=user, exam=exam, is_correct=True).count()
         score = correct_answers  # Example calculation; you can modify it based on your grading logic
-        return score  
+        return score
 
+class TakeExamAPIView(generics.CreateAPIView):
+    serializer_class = TakeExamSerializer
+
+    def post(self, request, *args, **kwargs):
+        exam_id = self.kwargs.get('exam_id')
+        user_id = request.data.get('user_id')
+        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking the exam
+
+        if not user_id:
+            return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch the user and exam
+        user = get_object_or_404(User, id=user_id)
+        exam = get_object_or_404(Exam, id=exam_id)
+        course = exam.course  # Get the associated course from the exam
+
+        # Check if the user has completed all lessons
+        completed_lessons = Lesson.objects.filter(course=course)
+        user_completed_lessons = UserLessonProgress.objects.filter(user=user, lesson__in=completed_lessons, is_completed=True)
+        
+        if user_completed_lessons.count() != completed_lessons.count():
+            return Response(
+                {"error": "You must complete all lessons before taking the exam."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Check if the user has completed all quizzes
+        completed_quizzes = Quiz.objects.filter(course=course)
+        user_completed_quizzes = UserQuizProgress.objects.filter(user=user, quiz__in=completed_quizzes, is_completed=True)
+
+        if user_completed_quizzes.count() != completed_quizzes.count():
+            return Response(
+                {"error": "You must complete all quizzes before taking the exam."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Check if the user has already taken the exam
+        existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
+        if existing_answers.exists():
+            if not retake:
+                return Response(
+                    {"message": "Exam already taken. Use the retake option to attempt again."},
+                    status=status.HTTP_409_CONFLICT
+                )
+            else:
+                # If retake is true, delete previous answers and grades
+                existing_answers.delete()
+                Grade.objects.filter(user=user, exam=exam).delete()
+
+        # Process the answers using the serializer
+        serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
+        serializer.is_valid(raise_exception=True)
+
+        # Save the user's answers and calculate the score
+        serializer.save()
+
+        score = self.calculate_score(user, exam)
+        total_marks = exam.total_marks
+
+        # Create or update the user's grade
+        grade, created = Grade.objects.update_or_create(
+            user=user,
+            exam=exam,
+            defaults={'score': score, 'total_score': total_marks, 'course': course}
+        )
+
+        return Response({"status": "success", "score": score, "total_score": total_marks}, status=status.HTTP_201_CREATED)
 from rest_framework.decorators import api_view
 
 @api_view(['GET'])
@@ -841,13 +914,21 @@ class CompletedCoursesView(APIView):
 @api_view(['POST'])
 def complete_lesson(request, lesson_id, user_id):
     try:
+        # Fetch the lesson and user based on the provided IDs
         lesson = Lesson.objects.get(id=lesson_id)
-        user = User.objects.get(id=user_id)
+        user = HealthProviderUser.objects.get(id=user_id)  # Changed to HealthProviderUser
+        
+        # Create or get the user's progress for this lesson
         progress, created = UserLessonProgress.objects.get_or_create(user=user, lesson=lesson)
+        
+        # Mark the lesson as completed
         progress.is_completed = True
         progress.save()
-        return Response({'status': 'success'})
-    except (Lesson.DoesNotExist, User.DoesNotExist):
+
+        # Respond with success
+        return Response({'status': 'Lesson marked as complete'})
+    
+    except (Lesson.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Lesson or User not found'}, status=404)
 
 
@@ -855,12 +936,12 @@ def complete_lesson(request, lesson_id, user_id):
 def complete_quiz(request, quiz_id, user_id):
     try:
         quiz = Quiz.objects.get(id=quiz_id)
-        user = User.objects.get(id=user_id)
+        user = HealthProviderUser.objects.get(id=user_id)  # Changed to HealthProviderUser
         progress, created = UserQuizProgress.objects.get_or_create(user=user, quiz=quiz)
         progress.is_completed = True
         progress.save()
         return Response({'status': 'success'})
-    except (Quiz.DoesNotExist, User.DoesNotExist):
+    except (Quiz.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Quiz or User not found'}, status=404)
 
 
@@ -868,32 +949,33 @@ def complete_quiz(request, quiz_id, user_id):
 def complete_exam(request, exam_id, user_id):
     try:
         exam = Exam.objects.get(id=exam_id)
-        user = User.objects.get(id=user_id)
+        user = HealthProviderUser.objects.get(id=user_id)  # Changed to HealthProviderUser
         progress, created = UserExamProgress.objects.get_or_create(user=user, exam=exam)
         progress.is_completed = True
         progress.save()
         return Response({'status': 'success'})
-    except (Exam.DoesNotExist, User.DoesNotExist):
+    except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Exam or User not found'}, status=404)
+
 
 @api_view(['GET'])
 def get_user_course_progress(request, course_id, user_id):
     try:
         course = Course.objects.get(id=course_id)
-        user = HealthProviderUser.objects.get(id=user_id)
+        user = HealthProviderUser.objects.get(id=user_id)  # Changed to HealthProviderUser
 
         # Calculate lesson progress
-        total_lessons = course.lessons.count()  # Use 'lessons' because of related_name='lessons'
+        total_lessons = course.lessons.count()
         completed_lessons = course.lessons.filter(userlessonprogress__user=user, userlessonprogress__is_completed=True).count()
         lesson_progress = (completed_lessons / total_lessons * 100) if total_lessons > 0 else 0
 
         # Calculate quiz progress
-        total_quizzes = course.quizzes.count()  # Use 'quizzes' because of related_name='quizzes'
+        total_quizzes = course.quizzes.count()
         completed_quizzes = course.quizzes.filter(userquizprogress__user=user, userquizprogress__is_completed=True).count()
         quiz_progress = (completed_quizzes / total_quizzes * 100) if total_quizzes > 0 else 0
 
         # Calculate exam progress
-        total_exams = course.exams.count()  # Assuming 'exams' is the related_name for the Exam model
+        total_exams = course.exams.count()
         completed_exams = course.exams.filter(userexamprogress__user=user, userexamprogress__is_completed=True).count()
         exam_progress = (completed_exams / total_exams * 100) if total_exams > 0 else 0
 
@@ -911,3 +993,190 @@ def get_user_course_progress(request, course_id, user_id):
         return Response({'error': 'Course not found'}, status=404)
     except HealthProviderUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
+
+@api_view(['POST'])
+def take_exam(request, exam_id, user_id):
+    try:
+        # Fetch the exam and user
+        exam = Exam.objects.get(id=exam_id)
+        user = HealthProviderUser.objects.get(id=user_id)
+
+        # Create or get the user's exam progress entry
+        progress, created = UserExamProgress.objects.get_or_create(user=user, exam=exam)
+
+        # If the exam is already completed, return a message
+        if progress.is_completed:
+            return Response({'status': 'Exam already completed'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update progress to 'started' or 'in progress'
+        progress.is_completed = False
+        progress.save()
+
+        # Fetch questions for the exam and their answers (choices)
+        questions = exam.questions.all()  # Get all questions related to the exam
+        question_data = []
+        for question in questions:
+            choices = question.answers.all()  # Get the choices related to this question
+            question_data.append({
+                'question_id': question.id,
+                'question_text': question.text,
+                'choices': [{'id': choice.id, 'text': choice.text} for choice in choices]
+            })
+
+        return Response({
+            'status': 'Exam started successfully',
+            'questions': question_data
+        })
+
+    except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):
+        return Response({'error': 'Exam or User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def submit_exam(request, exam_id, user_id):
+    try:
+        # Check if the exam exists
+        try:
+            exam = Exam.objects.get(id=exam_id)
+        except Exam.DoesNotExist:
+            return Response({'error': 'Exam not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the user exists
+        try:
+            user = HealthProviderUser.objects.get(id=user_id)
+        except HealthProviderUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get or create the user's exam progress
+        progress, created = UserExamProgress.objects.get_or_create(user=user, exam=exam)
+
+        # If the exam is already completed for this user, return an appropriate message
+        if not created and progress.is_completed:
+            return Response({'status': 'Exam already completed'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get answers from the request data
+        answers = request.data.get('answers', [])
+        
+        # Initialize score counters
+        total_questions = 0
+        correct_answers = 0
+        
+        # Loop through answers and save user's responses
+        for answer in answers:
+            question_id = answer.get('question_id')
+            choice_id = answer.get('choice_id')
+
+            # Check if the question exists
+            try:
+                question = ExamQuestion.objects.get(id=question_id)
+            except ExamQuestion.DoesNotExist:
+                return Response({'error': f'Question with ID {question_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Check if the answer choice exists for the question
+            try:
+                selected_answer = ExamAnswer.objects.get(id=choice_id, question=question)
+            except ExamAnswer.DoesNotExist:
+                return Response({'error': f'Answer with ID {choice_id} for Question ID {question_id} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Save or update the user's answer
+            user_answer, _ = ExamUserAnswer.objects.update_or_create(
+                user=user,
+                exam=exam,
+                question=question,
+                defaults={
+                    'selected_answer': selected_answer,
+                    'is_correct': selected_answer.is_correct
+                }
+            )
+
+            # Track score
+            total_questions += 1
+            if selected_answer.is_correct:
+                correct_answers += 1
+
+        # Calculate score as a percentage
+        score = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+
+        # Mark the exam as completed only after all answers are saved
+        progress.is_completed = True
+        progress.save()
+
+        return Response({
+            'status': 'Exam submitted successfully',
+            'score': round(score, 2),
+            'total_questions': total_questions,
+            'correct_answers': correct_answers
+        })
+
+    except Exception as e:
+        # Catch unexpected errors and log for further debugging
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.utils import timezone
+
+@api_view(['GET'])
+def get_user_certificate(request, exam_id, user_id):
+    try:
+        # Fetch the exam and user
+        exam = Exam.objects.get(id=exam_id)
+        user = HealthProviderUser.objects.get(id=user_id)
+        
+        # Get the related course from the exam
+        course = exam.course
+
+        # Calculate the user's score for the exam
+        total_questions = exam.questions.count()
+        correct_answers = ExamUserAnswer.objects.filter(
+            user=user, 
+            exam=exam, 
+            is_correct=True
+        ).count()
+        
+        # Calculate the percentage score
+        score_percentage = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+        
+        # Check if the user qualifies for a certificate (80% or higher)
+        if score_percentage >= 80:
+            # Check if a certificate has already been issued
+            certificate, created = Certificate.objects.get_or_create(
+                user=user, 
+                exam=exam, 
+                defaults={'issued_date': timezone.now()}
+            )
+            
+            if created:
+                message = 'Certificate issued successfully.'
+            else:
+                message = 'Certificate already exists.'
+
+            # Return detailed certificate information
+            return Response({
+                'status': message,
+                'certificate': {
+                    'user': {
+                        'registration_number': user.registration_number,
+                        'name': f"{user.first_name} {user.last_name}", 
+                        'email': user.email,
+                    },
+                    'exam': exam.title,
+                    'course': {
+                        'title': course.title,
+                        'description': course.description,
+                    },
+                    'issued_date': certificate.issued_date,
+                    'score_percentage': round(score_percentage, 2)
+                }
+            })
+
+        else:
+            return Response({
+                'status': 'Failed',
+                'message': 'Score below 80%, certificate not issued.',
+                'score_percentage': round(score_percentage, 2)
+            }, status=400)
+
+    except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):
+        return Response({'error': 'Exam or User not found'}, status=404)
+    except Course.DoesNotExist:
+        return Response({'error': 'Course not found'}, status=404)

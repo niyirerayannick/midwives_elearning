@@ -207,7 +207,6 @@ class ProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Progress
         fields = ['id', 'user', 'course', 'completed_lessons', 'completed_quizzes', 'total_lessons', 'total_quizzes', 'is_completed']
-        
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
@@ -255,7 +254,7 @@ class ExamUserAnswerSerializer(serializers.ModelSerializer):
         model = ExamUserAnswer
         fields = ['user', 'exam', 'question', 'selected_answer', 'is_correct']
 
-class TakeExamSerializer(serializers.Serializer):
+class y_TakeExamSerializer(serializers.Serializer):
     answers = serializers.ListField(
         child=serializers.DictField()  # Each answer should be a dictionary with 'question' and 'selected_answer'
     )
@@ -322,6 +321,84 @@ class TakeExamSerializer(serializers.Serializer):
             'total_questions': total_questions,
             'correct_answers': correct_count
         }
+
+from rest_framework import serializers
+from .models import ExamUserAnswer, Question, Answer, Exam
+
+class TakeExamAnswerSerializer(serializers.Serializer):
+    question_id = serializers.IntegerField()
+    answer_id = serializers.IntegerField()
+
+    def validate(self, data):
+        # Validate that the question exists
+        try:
+            question = Question.objects.get(id=data['question_id'])
+        except Question.DoesNotExist:
+            raise serializers.ValidationError("Question not found.")
+        
+        # Validate that the answer exists
+        try:
+            answer = Answer.objects.get(id=data['answer_id'], question_id=data['question_id'])
+        except Answer.DoesNotExist:
+            raise serializers.ValidationError("Answer not found for the given question.")
+        
+        return data
+
+
+class TakeExamSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    answers = TakeExamAnswerSerializer(many=True)
+
+    def validate_user(self, value):
+        """Validate that the user exists."""
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found.")
+        return value
+
+    def validate(self, data):
+        """Perform validation that the user has completed all lessons and quizzes."""
+        user = User.objects.get(id=data['user_id'])
+        answers = data.get('answers', [])
+
+        # Check if user has completed all lessons and quizzes (add your logic here)
+        # Check if the user has completed all lessons and quizzes
+        course = Exam.objects.get(id=self.context['exam'].id).course  # Use the exam context to get the course
+        completed_lessons = Progress.objects.filter(user=user, completed_lessons__in=course.lesson_set.all())
+        completed_quizzes = Progress.objects.filter(user=user, completed_quizzes__in=course.quiz_set.all())
+
+        if completed_lessons.count() != course.lesson_set.count():
+            raise serializers.ValidationError("You must complete all lessons before taking the exam.")
+
+        if completed_quizzes.count() != course.quiz_set.count():
+            raise serializers.ValidationError("You must complete all quizzes before taking the exam.")
+
+        return data
+
+    def create(self, validated_data):
+        """Create the ExamUserAnswer records."""
+        user_id = validated_data['user_id']
+        user = User.objects.get(id=user_id)
+        exam = self.context['exam']
+        answers_data = validated_data['answers']
+
+        # Create ExamUserAnswer records for each question-answer pair
+        answer_objects = []
+        for answer_data in answers_data:
+            question = Question.objects.get(id=answer_data['question_id'])
+            selected_answer = Answer.objects.get(id=answer_data['answer_id'])
+            answer_obj = ExamUserAnswer(
+                user=user,
+                exam=exam,
+                question=question,
+                selected_answer=selected_answer
+            )
+            answer_objects.append(answer_obj)
+
+        # Bulk create all answers at once
+        ExamUserAnswer.objects.bulk_create(answer_objects)
+        return validated_data
 
 
 class QuizUserAnswerSerializer(serializers.Serializer):
