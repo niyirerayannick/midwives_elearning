@@ -274,8 +274,8 @@ class Like(models.Model):
 class ExamUserAnswer(models.Model):
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)  # Linking to Question directly or you can change it to Exam's questions
-    selected_answer = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    question = models.ForeignKey(ExamQuestion, on_delete=models.CASCADE)  # Linking to Question directly or you can change it to Exam's questions
+    selected_answer = models.ForeignKey(ExamAnswer, on_delete=models.CASCADE)
     is_correct = models.BooleanField(default=False)
 
     class Meta:

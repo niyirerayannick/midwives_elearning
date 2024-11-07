@@ -572,7 +572,13 @@ class CommentListCreateView(generics.ListCreateAPIView):
 class CommentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CommentSerializer
 
+    # Short-circuit for schema generation
+    
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+           return Comment.objects.none()
+        
+         # Normal behavior
         update_id = self.kwargs['update_id']
         return Comment.objects.filter(update_id=update_id)
 
@@ -609,21 +615,20 @@ class ExamListCreateView(generics.ListCreateAPIView):
 class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
-
 class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer
 
     def post(self, request, *args, **kwargs):
         exam_id = self.kwargs.get('exam_id')
         user_id = request.data.get('user_id')
-        retake = request.path.endswith('retake/')  # Check if retake endpoint is used
+        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking the exam
 
-        # Ensure the user ID is provided
         if not user_id:
             return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_object_or_404(User, id=user_id)
+        user = get_object_or_404(HealthProviderUser, id=user_id)
         exam = get_object_or_404(Exam, id=exam_id)
+        course = exam.course  # Get the associated course from the exam
 
         # Check if the user has already taken the exam
         existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
@@ -634,18 +639,32 @@ class TakeExamAPIView(generics.CreateAPIView):
                     status=status.HTTP_409_CONFLICT
                 )
             else:
-                # If retake is true, delete previous answers and grades
+                # If retake is true, delete previous answers
                 existing_answers.delete()
+
+                # Also delete the previous grade
                 Grade.objects.filter(user=user, exam=exam).delete()
 
-        # Proceed with creating new answers and calculating score
+        # Proceed with creating new answers
         serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
         serializer.is_valid(raise_exception=True)
 
+        # Save the user's answers
         result = serializer.save()
 
-        return Response(result, status=status.HTTP_201_CREATED)
+        # Calculate the score and save or update the user's grade
+        score = self.calculate_score(user, exam)  # Function to calculate score based on saved answers
+        total_marks = exam.total_marks
 
+        # Create or update the grade, passing the course
+        grade, created = Grade.objects.update_or_create(
+            user=user,
+            exam=exam,
+            defaults={'score': score, 'total_score': total_marks, 'course': course}
+        )
+
+        return Response(result, status=status.HTTP_201_CREATED)
+   
 from rest_framework.decorators import api_view
 
 @api_view(['GET'])
@@ -705,13 +724,6 @@ class PasswordResetConfirmView(APIView):
             return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.utils import timezone
-from .models import Grade, Certificate, HealthProviderUser  # Import your user model
-from .serializers import CertificateSerializer
-
 class CertificateListView(APIView):
     def post(self, request, *args, **kwargs):
         user_id = request.data.get('user_id')
@@ -748,7 +760,7 @@ class CertificateListView(APIView):
 
                 # Create the certificate data
                 certificate_data = {
-                    "user": grade.user.id,
+                    "user": user_id,  # We already have the user ID
                     "course": grade.course.id,
                     "exam": grade.exam.id,
                     "issued_date": timezone.now().date()
@@ -757,11 +769,36 @@ class CertificateListView(APIView):
                 # Create the Certificate and assign the related objects
                 serializer = CertificateSerializer(data=certificate_data)
                 serializer.is_valid(raise_exception=True)
-                certificate_instance = serializer.save(user=HealthProviderUser.objects.get(id=user_id))
+                serializer.save(user=HealthProviderUser.objects.get(id=user_id))  # Save with the related user
                 certificates_data.append(serializer.data)
 
             return Response({"certificates": certificates_data}, status=status.HTTP_201_CREATED)
 
         except HealthProviderUser.DoesNotExist:
             return Response({"error": "Invalid user ID."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserCertificateListView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+            # Fetch certificates for the user
+            certificates = Certificate.objects.filter(user_id=user_id)
+
+            # Check if certificates exist for the user
+            if not certificates.exists():
+                return Response({"error": "No certificates found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Serialize the certificates
+            serializer = CertificateSerializer(certificates, many=True)
+
+            # Return the serialized data
+            return Response({"certificates": serializer.data}, status=status.HTTP_200_OK)
+
+        except Certificate.DoesNotExist:
+            return Response({"error": "Certificates not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

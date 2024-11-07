@@ -206,82 +206,6 @@ class ExamAnswerSerializer(serializers.ModelSerializer):
         model = ExamAnswer
         fields = ['id', 'question', 'text', 'is_correct']
 
-class TakeExamSerializer(serializers.Serializer):
-    answers = serializers.ListField(
-        child=serializers.DictField()  # Each answer should be a dictionary with 'question' and 'selected_answer'
-    )
-
-    def validate(self, data):
-        answers = data['answers']
-        exam = self.context['exam']  # Get the exam context
-        question_ids = set(exam.questions.values_list('id', flat=True))  # All valid question IDs
-
-        for answer in answers:
-            question_id = answer.get('question')  # Expecting question_id (integer ID)
-            selected_answer_id = answer.get('selected_answer')  # Expecting selected_answer_id (integer ID)
-
-            # Ensure question_id is valid
-            if question_id not in question_ids:
-                raise serializers.ValidationError(f"Invalid question ID: {question_id}.")
-
-            # Ensure selected_answer_id is provided
-            if selected_answer_id is None:
-                raise serializers.ValidationError("Each answer must include 'selected_answer'.")
-
-        return data
-
-    def create(self, validated_data):
-        exam = self.context['exam']
-        user = self.context['user']
-        answers = validated_data['answers']
-
-        correct_count = 0
-        total_questions = len(answers)
-
-        for answer in answers:
-            question_id = answer.get('question')  # Should be an integer ID
-            selected_answer_id = answer.get('selected_answer')  # Should be an integer ID
-
-            # Ensure valid question and answer IDs
-            if question_id is None or selected_answer_id is None:
-                raise serializers.ValidationError("Each answer must include both 'question' and 'selected_answer'.")
-
-            # Retrieve the ExamQuestion and ExamAnswer by their IDs
-            question = get_object_or_404(ExamQuestion, id=question_id)
-            selected_answer = get_object_or_404(ExamAnswer, id=selected_answer_id, question=question)
-
-            # Check if the selected answer is correct
-            if selected_answer.is_correct:
-                correct_count += 1
-
-            # Create or update the user's answer for this question
-            ExamUserAnswer.objects.update_or_create(
-                user=user,
-                question=question,
-                exam=exam,
-                defaults={
-                    'selected_answer': selected_answer,
-                    'is_correct': selected_answer.is_correct
-                }
-            )
-
-        # Calculate score
-        score = (correct_count / total_questions) * 100
-
-        # Save or update the grade
-        Grade.objects.update_or_create(
-            user=user,
-            exam=exam,
-            defaults={'score': score, 'total_score': exam.total_marks}
-        )
-
-        return {
-            'exam_id': exam.id,
-            'score': score,
-            'total_questions': total_questions,
-            'correct_answers': correct_count
-        }
-
 class ExamQuestionSerializer(serializers.ModelSerializer):
     answers = ExamAnswerSerializer(many=True, read_only=True)  # Include answers
     class Meta:
@@ -302,6 +226,73 @@ class ExamUserAnswerSerializer(serializers.ModelSerializer):
         model = ExamUserAnswer
         fields = ['user', 'exam', 'question', 'selected_answer', 'is_correct']
 
+class TakeExamSerializer(serializers.Serializer):
+    answers = serializers.ListField(
+        child=serializers.DictField()  # Each answer should be a dictionary with 'question' and 'selected_answer'
+    )
+
+    def validate(self, data):
+        answers = data['answers']
+        exam = self.context['exam']
+        question_ids = set(exam.questions.values_list('id', flat=True))  # All valid question IDs from ExamQuestion
+
+        for answer in answers:
+            question_id = answer.get('question')
+            selected_answer_id = answer.get('selected_answer')
+
+            # Check if the provided question_id is valid
+            if question_id not in question_ids:
+                raise serializers.ValidationError(f"Invalid question ID: {question_id}.")
+            
+            if selected_answer_id is None:
+                raise serializers.ValidationError("Each answer must include 'selected_answer'.")
+
+        return data
+
+    def create(self, validated_data):
+        exam = self.context['exam']
+        user = self.context['user']
+        answers = validated_data['answers']
+
+        correct_count = 0
+        total_questions = len(answers)
+
+        for answer in answers:
+            question_id = answer.get('question')
+            selected_answer_id = answer.get('selected_answer')
+
+            # Ensure that each answer has valid question and selected_answer IDs
+            question = get_object_or_404(ExamQuestion, id=question_id)
+            selected_answer = get_object_or_404(ExamAnswer, id=selected_answer_id, question=question)
+
+            if selected_answer.is_correct:
+                correct_count += 1
+
+            # Create or update the user's answer for this question
+            ExamUserAnswer.objects.update_or_create(
+                user=user,
+                question=question,
+                exam=exam,
+                defaults={
+                    'selected_answer': selected_answer,
+                    'is_correct': selected_answer.is_correct
+                }
+            )
+
+        score = (correct_count / total_questions) * 100
+
+        Grade.objects.update_or_create(
+            user=user,
+            exam=exam,
+            defaults={'score': score, 'total_score': exam.total_marks}
+        )
+
+        return {
+            'exam_id': exam.id,
+            'score': score,
+            'total_questions': total_questions,
+            'correct_answers': correct_count
+        }
 
 
 class QuizUserAnswerSerializer(serializers.Serializer):
@@ -489,12 +480,11 @@ class ExamUserSerializer(serializers.ModelSerializer):
 
 
 class CertificateSerializer(serializers.ModelSerializer):
-    exam = ExamSerializer(read_only=True)
-    course = CourseSerializer(read_only=True)
-    user = UserSerializer(read_only=True)  # Assuming you want to output full user info
+    user = UserSerializer()
+    course = CourseSerializer()
+    exam = ExamSerializer(allow_null=True)  # If the exam is optional, allow null
 
     class Meta:
         model = Certificate
-        fields = ['id', 'user', 'exam', 'course', 'issued_date']
-        extra_kwargs = {'user': {'required': False}}  # Set user to not required
+        fields = ['id', 'user', 'course', 'exam', 'issued_date']
 
