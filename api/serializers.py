@@ -178,7 +178,36 @@ class CourseProgressSerializer(serializers.Serializer):
         # Update progress for the specified user and course
         instance.update_progress(item_type, item_id)  # Call the update_progress method from the model
         return instance
+class ProgressSerializer(serializers.ModelSerializer):
+    # Nested serializers for related fields
+    user = serializers.PrimaryKeyRelatedField(queryset=HealthProviderUser.objects.all())
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
+    completed_lessons = serializers.PrimaryKeyRelatedField(queryset=Lesson.objects.all(), many=True)
+    completed_quizzes = serializers.PrimaryKeyRelatedField(queryset=Quiz.objects.all(), many=True)
+    
+    total_lessons = serializers.IntegerField(read_only=True)
+    total_quizzes = serializers.SerializerMethodField()
+    
+    # Calculate the total number of quizzes in a course
+    def get_total_quizzes(self, obj):
+        return Quiz.objects.filter(course=obj.course).count()
+    
+    # Check if the progress is complete (all lessons and quizzes completed)
+    is_completed = serializers.SerializerMethodField()
 
+    def get_is_completed(self, obj):
+        total_lessons = obj.total_lessons
+        completed_lessons_count = obj.completed_lessons.count()
+        total_quizzes = self.get_total_quizzes(obj)
+        completed_quizzes_count = obj.completed_quizzes.count()
+
+        # Progress is complete when all lessons and quizzes are completed
+        return completed_lessons_count == total_lessons and completed_quizzes_count == total_quizzes
+
+    class Meta:
+        model = Progress
+        fields = ['id', 'user', 'course', 'completed_lessons', 'completed_quizzes', 'total_lessons', 'total_quizzes', 'is_completed']
+        
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification

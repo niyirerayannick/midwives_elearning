@@ -109,4 +109,13 @@ urlpatterns = [
 
     # Like or unlike an update
     path('updates/<int:update_id>/like/', LikeUpdateView.as_view(), name='like_update'),
+
+    # Existing paths for completing lessons, quizzes, and exams
+    path('yannick/lesson/<int:lesson_id>/complete/', views.complete_lesson, name='complete_lesson'),
+    path('yannick/quiz/<int:quiz_id>/complete/', views.complete_quiz, name='complete_quiz'),
+    path('yannick/exam/<int:exam_id>/complete/', views.complete_exam, name='complete_exam'),
+
+    # New path for checking user progress in a course
+    # path('yannick/course/<int:course_id>/progress/<int:user_id>/', views.get_course_progress, name='check_user_progress'),
+    path('yannick/course/<int:course_id>/progress/<int:user_id>/', views.get_user_course_progress, name='check_user_progress'),
 ]

@@ -107,6 +107,7 @@ class OneTimePassword(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} - otp code"
+
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name="Lesson Title", help_text="The title of the lesson")
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE, verbose_name="Related Course")
@@ -115,6 +116,8 @@ class Lesson(models.Model):
     readings = models.TextField(blank=True, null=True, verbose_name="Readings", help_text="Optional text-based lesson content")
     pdf_file = models.FileField(upload_to='lessons/pdfs/', blank=True, null=True, verbose_name="PDF File", help_text="Optional PDF file for lesson")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date Created")
+    is_completed = models.BooleanField(default=False)
+    users = models.ManyToManyField(HealthProviderUser, through='UserLessonProgress')
 
     def __str__(self):
         return self.title
@@ -130,10 +133,12 @@ class Lesson(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super(Lesson, self).save(*args, **kwargs)
+
 class Quiz(models.Model):
     course = models.ForeignKey(Course, related_name='quizzes', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     total_marks = models.PositiveIntegerField()
+    is_completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
@@ -155,6 +160,7 @@ class Exam(models.Model):
     course = models.ForeignKey(Course, related_name='exams', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     total_marks = models.PositiveIntegerField()
+    is_completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} ({self.course.title})"
@@ -204,10 +210,18 @@ class Enrollment(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='enrollments', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='enrollments', on_delete=models.CASCADE)
     date_enrolled = models.DateField(auto_now_add=True)
+    completion_status = models.CharField(max_length=50, choices=[('in_progress', 'In Progress'), ('completed', 'Completed')])
 
     def __str__(self):
         return f"{self.user.registration_number} enrolled in {self.course.title}"
-    
+
+    def update_completion_status(self):
+        # Check if the user has completed all lessons and quizzes via progress
+        progress = self.user.progress.filter(course=self.course).first()
+        if progress and progress.completed_lessons.count() == self.course.lesson_set.count() and progress.completed_quizzes.count() == self.course.quiz_set.count():
+            self.completion_status = 'completed'
+            self.save()
+
 class Progress(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
@@ -226,6 +240,19 @@ class Progress(models.Model):
             quiz = Quiz.objects.get(id=item_id)
             self.completed_quizzes.add(quiz)  # Add quiz to the many-to-many relationship
         self.save()
+        # Update enrollment completion status after progress update
+        enrollment = Enrollment.objects.filter(user=self.user, course=self.course).first()
+        if enrollment:
+            enrollment.update_completion_status()
+
+    def mark_as_complete(self):
+        """
+        Mark course as complete if the user has completed all lessons and quizzes
+        """
+        if self.completed_lessons.count() == self.course.lesson_set.count() and self.completed_quizzes.count() == self.course.quiz_set.count():
+            enrollment = Enrollment.objects.get(user=self.user, course=self.course)
+            enrollment.completion_status = 'completed'
+            enrollment.save()
 
 # Notification Model
 class Notification(models.Model):
@@ -271,6 +298,7 @@ class Like(models.Model):
 
     def __str__(self):
         return f'{self.user} likes {self.update}'
+
 class ExamUserAnswer(models.Model):
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
@@ -295,3 +323,31 @@ class QuizUserAnswer(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.quiz.title} - Question: {self.question.text}"
+
+
+# New model to track user progress on lessons, quizzes, and exams
+class UserLessonProgress(models.Model):
+    user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.registration_number} - {self.lesson.title}"
+
+
+class UserQuizProgress(models.Model):
+    user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.registration_number} - {self.quiz.title}"
+
+
+class UserExamProgress(models.Model):
+    user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.registration_number} - {self.exam.title}"
