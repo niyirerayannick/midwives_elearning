@@ -1161,25 +1161,18 @@ def get_grades(request, user_id, course_id):
         # Filter grades by user_id and course_id
         grades = Grade.objects.filter(user_id=user_id, course_id=course_id)
 
-        # Serialize the results
-        grade_data = []
-        for grade in grades:
-            grade_data.append({
-                'user': grade.user.id,
-                'course': grade.course.id,
-                'quiz': grade.quiz.id if grade.quiz else None,
-                'exam': grade.exam.id if grade.exam else None,
-                'score': float(grade.score),
-                'total_score': grade.total_score,
-                'percentage': round(grade.percentage, 2)
-            })
+        # If no grades are found, return a 404 error
+        if not grades:
+            return Response({'error': 'No grades found for the specified user and course'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({'grades': grade_data}, status=status.HTTP_200_OK)
+        # Serialize the grades data using GradeSerializer
+        serializer = GradeSerializer(grades, many=True)
+
+        return Response({'grades': serializer.data}, status=status.HTTP_200_OK)
 
     except Exception as e:
         # Handle unexpected errors
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 @api_view(['GET'])
 def get_user_certificate(request, exam_id, user_id):
     try:
