@@ -11,9 +11,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework import generics
 from rest_framework.views import APIView
 from .utils import send_otp_to_email
-from .models import (Category, ExamAnswer, ExamQuestion, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
+from .models import (Category, Emergency, ExamAnswer, ExamQuestion, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment, UserExamProgress, UserLessonProgress, UserQuizProgress)
-from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CourseProgressSerializer,
+from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CourseProgressSerializer, EmergencySerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
                           NotificationSerializer, SkillSerializer, TakeExamSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
@@ -1245,3 +1245,35 @@ def get_user_certificate(request, exam_id, user_id):
         return Response({'error': 'Exam or User not found'}, status=404)
     except Course.DoesNotExist:
         return Response({'error': 'Course not found'}, status=404)
+    
+@api_view(['GET'])
+def get_emergency_courses(request):
+    """
+    Get all emergency courses with associated files.
+    """
+    try:
+        emergencies = Emergency.objects.all()
+        serializer = EmergencySerializer(emergencies, many=True)  # Serialize the list of emergencies
+        return Response({'emergencies': serializer.data}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+api_view(['GET'])
+def get_single_emergency(request, emergency_id):
+    """
+    Get details of a single emergency course with associated files.
+    """
+    try:
+        # Fetch the emergency course using the provided ID
+        emergency = Emergency.objects.get(id=emergency_id)
+
+        # Serialize the emergency data
+        serializer = EmergencySerializer(emergency)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Emergency.DoesNotExist:
+        return Response({'error': 'Emergency course not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

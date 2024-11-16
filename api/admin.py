@@ -5,6 +5,18 @@ from .models import (
     Exam, Certificate, Enrollment, Progress, Grade, Notification, Update, 
     Comment, Like, ExamUserAnswer, QuizUserAnswer
 )
+from .models import Emergency, EmergencyFile
+
+@admin.register(Emergency)
+class EmergencyAdmin(admin.ModelAdmin):
+    list_display = ['title', 'description', 'created_at']
+    search_fields = ['title', 'description']
+
+@admin.register(EmergencyFile)
+class EmergencyFileAdmin(admin.ModelAdmin):
+    list_display = ['emergency', 'file_type', 'description']
+    search_fields = ['emergency__title', 'file_type']
+
 @admin.register(ExamQuestion)
 class ExamQuestionAdmin(admin.ModelAdmin):
     list_display = ('text', 'exam', 'is_multiple_choice')

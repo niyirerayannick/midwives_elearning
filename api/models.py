@@ -351,3 +351,20 @@ class UserExamProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.registration_number} - {self.exam.title}"
+
+class Emergency(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+class EmergencyFile(models.Model):
+    emergency = models.ForeignKey(Emergency, related_name='files', on_delete=models.CASCADE)
+    file = models.FileField(upload_to='emergency_files/')  # You can set a path like 'emergency_files/'
+    file_type = models.CharField(max_length=50, choices=[('video', 'Video'), ('audio', 'Audio'), ('pdf', 'PDF'), ('image', 'Image')])
+    description = models.TextField(null=True, blank=True)  # Optional description of the file
+
+    def __str__(self):
+        return f"{self.file_type} file for {self.emergency.title}"

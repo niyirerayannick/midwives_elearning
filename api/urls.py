@@ -79,7 +79,8 @@ urlpatterns = [
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),
-
+    path('emergency/', views.get_emergency_courses, name='get_emergency_courses'),
+    path('emergency/<int:emergency_id>/', views.get_single_emergency, name='get_single_emergency'),
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed

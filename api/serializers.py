@@ -1,7 +1,7 @@
 from tokenize import Comment
 
 from django.shortcuts import get_object_or_404
-from .models import ExamAnswer, ExamQuestion, ExamUserAnswer, Skill, Update, Comment, Like
+from .models import Emergency, EmergencyFile, ExamAnswer, ExamQuestion, ExamUserAnswer, Skill, Update, Comment, Like
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
@@ -594,3 +594,15 @@ class CertificateSerializer(serializers.ModelSerializer):
         model = Certificate
         fields = ['id', 'user', 'course', 'exam', 'issued_date']
 
+
+class EmergencyFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmergencyFile
+        fields = ['file_url', 'file_type', 'description']
+
+class EmergencySerializer(serializers.ModelSerializer):
+    files = EmergencyFileSerializer(many=True, read_only=True)  # Nest the files in the emergency response
+
+    class Meta:
+        model = Emergency
+        fields = ['id', 'title', 'description', 'created_at', 'files']
