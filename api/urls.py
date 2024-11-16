@@ -59,6 +59,9 @@ urlpatterns = [
     path('auth/send-otp/', SendOtpForPasswordResetView.as_view(), name='send-otp'),
     path('auth/verify-otp/', VerifyOtpView.as_view(), name='verify-otp'),
     path('auth/reset-password/', PasswordResetConfirmView.as_view(), name='reset-password'),
+
+    path('emergency/', views.get_emergency_courses, name='get_emergency_courses'),
+    path('emergency/<int:emergency_id>/', views.get_single_emergency, name='get_single_emergency'),
     # Course-related endpoints
     path('courses/', CourseListView.as_view(), name='course-list'),
     path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),
@@ -79,8 +82,7 @@ urlpatterns = [
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),
-    path('emergency/', views.get_emergency_courses, name='get_emergency_courses'),
-    path('emergency/<int:emergency_id>/', views.get_single_emergency, name='get_single_emergency'),
+    
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed

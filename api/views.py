@@ -1259,7 +1259,7 @@ def get_emergency_courses(request):
     except Exception as e:
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-api_view(['GET'])
+@api_view(['GET'])
 def get_single_emergency(request, emergency_id):
     """
     Get details of a single emergency course with associated files.
@@ -1271,6 +1271,7 @@ def get_single_emergency(request, emergency_id):
         # Serialize the emergency data
         serializer = EmergencySerializer(emergency)
 
+        # Return the serialized data wrapped in a Response object
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     except Emergency.DoesNotExist:
