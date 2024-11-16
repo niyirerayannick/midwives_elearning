@@ -1052,9 +1052,6 @@ def submit_exam(request, exam_id, user_id):
         # Catch unexpected errors and log for further debugging
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.utils import timezone
 
 @api_view(['GET'])
 def get_grades(request, user_id, course_id):
@@ -1066,7 +1063,7 @@ def get_grades(request, user_id, course_id):
         grades = Grade.objects.filter(user_id=user_id, course_id=course_id)
 
         # If no grades are found, return a 404 error
-        if not grades:
+        if not grades.exists():
             return Response({'error': 'No grades found for the specified user and course'}, status=status.HTTP_404_NOT_FOUND)
 
         # Serialize the grades data using GradeSerializer
@@ -1077,6 +1074,7 @@ def get_grades(request, user_id, course_id):
     except Exception as e:
         # Handle unexpected errors
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 def get_user_certificate(request, exam_id, user_id):
     try:
