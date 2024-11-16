@@ -596,6 +596,8 @@ class CertificateSerializer(serializers.ModelSerializer):
 
 
 class EmergencyFileSerializer(serializers.ModelSerializer):
+    file_url = serializers.ReadOnlyField(source='file_url')  # This will use the 'file_url' property from the model
+
     class Meta:
         model = EmergencyFile
         fields = ['file_url', 'file_type', 'description']

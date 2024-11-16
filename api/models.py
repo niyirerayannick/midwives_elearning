@@ -360,11 +360,16 @@ class Emergency(models.Model):
     def __str__(self):
         return self.title
 
+
 class EmergencyFile(models.Model):
     emergency = models.ForeignKey(Emergency, related_name='files', on_delete=models.CASCADE)
-    file = models.FileField(upload_to='emergency_files/')  # You can set a path like 'emergency_files/'
+    file = models.FileField(upload_to='emergency_files/')  # The actual file (video, pdf, etc.)
     file_type = models.CharField(max_length=50, choices=[('video', 'Video'), ('audio', 'Audio'), ('pdf', 'PDF'), ('image', 'Image')])
-    description = models.TextField(null=True, blank=True)  # Optional description of the file
+    description = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.file_type} file for {self.emergency.title}"
+        return f"{self.file_type} - {self.description}"
+    
+    @property
+    def file_url(self):
+        return self.file.url if self.file else None
