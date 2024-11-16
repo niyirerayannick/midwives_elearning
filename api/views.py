@@ -453,36 +453,14 @@ class TakeQuizAPIView(generics.CreateAPIView):
             else:
                 # If retake is true, delete previous answers
                 existing_answers.delete()
-
-                # Also delete the previous grade
                 Grade.objects.filter(user=user, quiz=quiz).delete()
 
-        # Proceed with creating new answers
-        serializer = self.get_serializer(data=request.data, context={'request': request, 'quiz': quiz, 'user': user})
+        serializer = self.get_serializer(data=request.data, context={'quiz': quiz, 'user': user})
         serializer.is_valid(raise_exception=True)
-
-        # Save the user's answers
         result = serializer.save()
 
-        # Calculate the score and save or update the user's grade
-        score = self.calculate_score(user, quiz)  # Function to calculate score based on saved answers
-        total_marks = quiz.total_marks
-
-        # Create or update the grade
-        Grade.objects.update_or_create(
-            user=user,
-            course=quiz.course,
-            quiz=quiz,
-            defaults={'score': score, 'total_score': total_marks}
-        )
-
         return Response(result, status=status.HTTP_201_CREATED)
-
-    def calculate_score(self, user, quiz):
-        # Calculate the score based on the user's answers
-        correct_answers = QuizUserAnswer.objects.filter(user=user, quiz=quiz, is_correct=True).count()
-        return correct_answers  # Adjust based on your grading scheme
-
+    
 class UserGradeListView(APIView):
     queryset = Grade.objects.all()  # Define the queryset for grades
 
@@ -615,80 +593,6 @@ class ExamListCreateView(generics.ListCreateAPIView):
 class ExamRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
-
-class y_TakeExamAPIView(generics.CreateAPIView):
-    serializer_class = TakeExamSerializer
-
-    def post(self, request, *args, **kwargs):
-        exam_id = self.kwargs.get('exam_id')
-        user_id = request.data.get('user_id')
-        retake = request.path.endswith('retake/')  # Check if the endpoint is for retaking the exam
-
-        if not user_id:
-            return Response({"error": "User ID not provided"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = get_object_or_404(HealthProviderUser, id=user_id)
-        exam = get_object_or_404(Exam, id=exam_id)
-        course = exam.course  # Get the associated course from the exam
-
-        # # Check if the user has completed all lessons and quizzes before taking the exam
-        # progress = Progress.objects.filter(user=user, course=course).first()
-        # if not progress:
-        #     return Response({"error": "Progress record not found for the user in this course."}, status=status.HTTP_404_NOT_FOUND)
-
-        # # Check if all lessons are completed
-        # total_lessons = course.lessons.count()
-        # completed_lessons = progress.completed_lessons.count()
-        # if completed_lessons != total_lessons:
-        #     return Response({"error": "You must complete all lessons before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
-
-        # # Check if all quizzes are completed
-        # total_quizzes = course.quizzes.count()
-        # completed_quizzes = progress.completed_quizzes.count()
-        # if completed_quizzes != total_quizzes:
-        #     return Response({"error": "You must complete all quizzes before taking the exam."}, status=status.HTTP_403_FORBIDDEN)
-
-        # Check if the user has already taken the exam
-        existing_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
-        if existing_answers.exists():
-            if not retake:
-                return Response(
-                    {"message": "Exam already taken. Use retake option to attempt again."},
-                    status=status.HTTP_409_CONFLICT
-                )
-            else:
-                # If retake is true, delete previous answers
-                existing_answers.delete()
-
-                # Also delete the previous grade
-                Grade.objects.filter(user=user, exam=exam).delete()
-
-        # Proceed with creating new answers
-        serializer = self.get_serializer(data=request.data, context={'request': request, 'exam': exam, 'user': user})
-        serializer.is_valid(raise_exception=True)
-
-        # Save the user's answers
-        result = serializer.save()
-
-        # Calculate the score and save or update the user's grade
-        score = self.calculate_score(user, exam)  # Function to calculate score based on saved answers
-        total_marks = exam.total_marks
-
-        # Create or update the grade, passing the course
-        grade, created = Grade.objects.update_or_create(
-            user=user,
-            exam=exam,
-            defaults={'score': score, 'total_score': total_marks, 'course': course}
-        )
-
-        return Response(result, status=status.HTTP_201_CREATED)
-
-    def calculate_score(self, user, exam):
-        # Implement logic to calculate the score based on the user's answers
-        # For example, you could count the correct answers and calculate the score accordingly
-        correct_answers = ExamUserAnswer.objects.filter(user=user, exam=exam, is_correct=True).count()
-        score = correct_answers  # Example calculation; you can modify it based on your grading logic
-        return score
 
 class TakeExamAPIView(generics.CreateAPIView):
     serializer_class = TakeExamSerializer

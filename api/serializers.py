@@ -409,14 +409,28 @@ class TakeQuizSerializer(serializers.Serializer):
     answers = serializers.JSONField()  # Assumes answers will be passed as JSON
 
     def validate(self, data):
-        answers = data['answers']
+        answers = data.get('answers')
         quiz = self.context['quiz']
         question_ids = set(quiz.questions.values_list('id', flat=True))
 
+        if isinstance(answers, str):
+            import json
+            try:
+                answers = json.loads(answers)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError("Answers must be a valid JSON object.")
+
+        if not isinstance(answers, list):
+            raise serializers.ValidationError("Answers must be a list of dictionaries.")
+
         for answer in answers:
+            if not isinstance(answer, dict) or 'question' not in answer or 'selected_answer' not in answer:
+                raise serializers.ValidationError("Each answer must have 'question' and 'selected_answer' keys.")
             question = answer['question']
             if question not in question_ids:
-                raise serializers.ValidationError("Invalid question in answers.")
+                raise serializers.ValidationError(f"Invalid question ID: {question}")
+
+        data['answers'] = answers
         return data
 
     def create(self, validated_data):
@@ -428,16 +442,24 @@ class TakeQuizSerializer(serializers.Serializer):
         total_questions = len(answers)
 
         for answer in answers:
-            question = answer['question']
-            selected_answer = answer['selected_answer']
-            question = get_object_or_404(Question, id=question)
-            selected_answer = get_object_or_404(Answer, id=selected_answer)
+            question_id = answer['question']
+            selected_answer_id = answer['selected_answer']
+            question = get_object_or_404(Question, id=question_id)
+            selected_answer = get_object_or_404(Answer, id=selected_answer_id)
+
+            # Save the user's answer
+            QuizUserAnswer.objects.update_or_create(
+                user=user,
+                quiz=quiz,
+                question=question,
+                defaults={'selected_answer': selected_answer, 'is_correct': selected_answer.is_correct}
+            )
 
             # Check if the selected answer is correct
             if selected_answer.is_correct:
                 correct_count += 1
 
-        score = (correct_count / total_questions) * 100
+        score = (correct_count / total_questions) * quiz.total_marks if total_questions > 0 else 0
 
         # Save the user's grade
         Grade.objects.create(user=user, course=quiz.course, quiz=quiz, score=score, total_score=quiz.total_marks)
