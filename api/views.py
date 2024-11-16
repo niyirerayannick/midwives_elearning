@@ -931,7 +931,6 @@ def complete_lesson(request, lesson_id, user_id):
     except (Lesson.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Lesson or User not found'}, status=404)
 
-
 @api_view(['POST'])
 def complete_quiz(request, quiz_id, user_id):
     try:
@@ -944,7 +943,6 @@ def complete_quiz(request, quiz_id, user_id):
     except (Quiz.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Quiz or User not found'}, status=404)
 
-
 @api_view(['POST'])
 def complete_exam(request, exam_id, user_id):
     try:
@@ -956,7 +954,6 @@ def complete_exam(request, exam_id, user_id):
         return Response({'status': 'success'})
     except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):  # Changed to HealthProviderUser
         return Response({'error': 'Exam or User not found'}, status=404)
-
 
 @api_view(['GET'])
 def get_user_course_progress(request, course_id, user_id):
@@ -1030,6 +1027,46 @@ def take_exam(request, exam_id, user_id):
 
     except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):
         return Response({'error': 'Exam or User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def retake_exam(request, exam_id, user_id):
+    try:
+        # Fetch the exam and user
+        exam = Exam.objects.get(id=exam_id)
+        user = HealthProviderUser.objects.get(id=user_id)
+
+        # Check user's exam progress
+        try:
+            progress = UserExamProgress.objects.get(user=user, exam=exam)
+        except UserExamProgress.DoesNotExist:
+            return Response({'error': 'Exam not taken yet, cannot retake.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure the exam was completed
+        if not progress.is_completed:
+            return Response({'error': 'Exam not completed yet, cannot retake.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the user scored less than 80%
+        user_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
+        total_questions = user_answers.count()
+        correct_answers = user_answers.filter(is_correct=True).count()
+        score = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+
+        if score >= 80:
+            return Response({'status': 'You have already passed the exam and cannot retake it.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Reset exam progress for retake
+        progress.is_completed = False
+        progress.save()
+
+        # Delete previous answers for this user and exam
+        ExamUserAnswer.objects.filter(user=user, exam=exam).delete()
+
+        return Response({'status': 'Exam reset successfully. You can now retake the exam.'}, status=status.HTTP_200_OK)
+
+    except (Exam.DoesNotExist, HealthProviderUser.DoesNotExist):
+        return Response({'error': 'Exam or User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def submit_exam(request, exam_id, user_id):
@@ -1114,6 +1151,34 @@ def submit_exam(request, exam_id, user_id):
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
+
+@api_view(['GET'])
+def get_grades(request, user_id, course_id):
+    """
+    Retrieve grades for a specific user and course.
+    """
+    try:
+        # Filter grades by user_id and course_id
+        grades = Grade.objects.filter(user_id=user_id, course_id=course_id)
+
+        # Serialize the results
+        grade_data = []
+        for grade in grades:
+            grade_data.append({
+                'user': grade.user.id,
+                'course': grade.course.id,
+                'quiz': grade.quiz.id if grade.quiz else None,
+                'exam': grade.exam.id if grade.exam else None,
+                'score': float(grade.score),
+                'total_score': grade.total_score,
+                'percentage': round(grade.percentage, 2)
+            })
+
+        return Response({'grades': grade_data}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        # Handle unexpected errors
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def get_user_certificate(request, exam_id, user_id):

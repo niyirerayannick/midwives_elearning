@@ -68,7 +68,8 @@ urlpatterns = [
     path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
     path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
     path('courses/<int:course_id>/courseprogress/mark-completed/', CourseProgressView.as_view(), name='courseprogress-mark-completed'),
-    path('courses/grades/', UserGradeListView.as_view(), name='user-grades'),
+    # path('courses/grades/', UserGradeListView.as_view(), name='user-grades'),
+    path('courses/<int:user_id>/<int:course_id>/get_grades/', views.get_grades, name='get_grades'),
     path('courses/search/', CourseSearchView.as_view(), name='course-search'),
     path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
@@ -107,6 +108,7 @@ urlpatterns = [
     path('exams/completing /exam/<int:exam_id>/complete/', views.complete_exam, name='complete_exam'),
     path('exams/user/<int:user_id>/certificates/', UserCertificateListView.as_view(), name='user-certificates'),
     path('exams/<int:exam_id>/take/<int:user_id>/', views.take_exam, name='take_exam'),
+    path('exams/<int:exam_id>/retake_exam/<int:user_id>/', views.retake_exam, name='retake_exam'),
     path('exams/<int:exam_id>/submit/<int:user_id>/', views.submit_exam, name='submit_exam'),
     path('exams/<int:exam_id>/certificate/<int:user_id>/', views.get_user_certificate, name='get_user_certificate'),
 
