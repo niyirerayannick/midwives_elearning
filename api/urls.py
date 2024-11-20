@@ -15,6 +15,7 @@ from .views import (
     CourseSearchView,
     CourseUpdateView,
     CourseEnrollAPIView,
+    CoursesInProgressView,
     ExamListCreateView,
     ExamRetrieveUpdateDeleteView,
     LessonDetailView,
@@ -81,6 +82,7 @@ urlpatterns = [
     path('courses/<int:course_id>/exams/', views.get_exam_by_course, name='get_exam_by_course'),
     path('courses/user/certificates/', CertificateListView.as_view(), name='certificate-list'),
     path('courses/completed-courses/<int:user_id>/', CompletedCoursesView.as_view(), name='completed-courses'),
+    path('courses/in-progress-courses/<int:user_id>/', CoursesInProgressView.as_view(), name='in-progress-courses'),
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),

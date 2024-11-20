@@ -652,3 +652,10 @@ class CompletedCourseSerializer(serializers.ModelSerializer):
         if self.get_is_completed(obj):
             return f"Course '{obj.course.title}' is completed."
         return f"Course '{obj.course.title}' is not completed yet."
+    
+class CourseInProgressSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title')
+
+    class Meta:
+        model = Progress
+        fields = ['course_title']

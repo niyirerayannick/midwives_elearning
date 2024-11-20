@@ -18,6 +18,8 @@ from .serializers import (AnswerSerializer, CategorySerializer, CertificateSeria
                           NotificationSerializer, SkillSerializer, TakeExamSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
                            QuizSerializer,QuestionSerializer,VerifyPasswordResetOtpSerializer, SetNewPasswordSerializer,ChangePasswordSerializer, LoginSerializer)
+from django.db.models import F
+
 User = get_user_model()
 # Admin-only view for creating new users
 class AdminUserCreateView(GenericAPIView, CreateModelMixin):
@@ -1179,3 +1181,42 @@ def get_single_emergency(request, emergency_id):
     except Exception as e:
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Progress, HealthProviderUser
+
+class CoursesInProgressView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+            # Verify if the user exists
+            if not HealthProviderUser.objects.filter(id=user_id).exists():
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Fetch all progress records for the user
+            progress_records = Progress.objects.filter(user_id=user_id)
+
+            # Filter courses where not all lessons or quizzes are completed
+            in_progress_courses = []
+            for progress in progress_records:
+                total_lessons = progress.course.lessons.count()
+                total_quizzes = progress.course.quizzes.count()
+
+                if (
+                    progress.completed_lessons.count() < total_lessons or
+                    progress.completed_quizzes.count() < total_quizzes
+                ):
+                    in_progress_courses.append({
+                        "course_id": progress.course.id,
+                        "course_title": progress.course.title
+                    })
+
+            # Check if there are any courses in progress
+            if not in_progress_courses:
+                return Response({"message": "No courses in progress."}, status=status.HTTP_404_NOT_FOUND)
+
+            return Response({"in_progress_courses": in_progress_courses}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
