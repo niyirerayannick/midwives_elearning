@@ -8,7 +8,7 @@ from django.urls import path, include
 schema_view = get_schema_view(
    openapi.Info(
       title="Midwives eLearning API",
-      default_version='v1',
+      default_version='v2',
       description="API documentation for Midwives eLearning Platform",
       terms_of_service="https://www.google.com/policies/terms/",
       contact=openapi.Contact(email="contact@fcmc.muberarugo.org"),

@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from .utils import send_otp_to_email
 from .models import (Category, Emergency, ExamAnswer, ExamQuestion, ExamUserAnswer, Grade, HealthProviderUser, Course, Lesson, Like, Quiz, Question, Answer, 
                      Exam, Certificate, Enrollment, Progress, Notification, QuizUserAnswer, Skill, Update, Comment, UserExamProgress, UserLessonProgress, UserQuizProgress)
-from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CourseProgressSerializer, EmergencySerializer,
+from .serializers import (AnswerSerializer, CategorySerializer, CertificateSerializer, CommentSerializer, CompletedCourseSerializer, CourseProgressSerializer, EmergencySerializer,
                            EnrollmentSerializer, ExamSerializer, ExamUserAnswerSerializer, GradeRequestSerializer, GradeSerializer, 
                           NotificationSerializer, SkillSerializer, TakeExamSerializer, TakeQuizSerializer, UpdateSerializer,  
                           UserSerializer, CourseSerializer, LessonSerializer,
@@ -801,20 +801,25 @@ class UserCertificateListView(APIView):
 class CompletedCoursesView(APIView):
     def get(self, request, user_id, *args, **kwargs):
         try:
-            # Fetch grades where the score is above a certain threshold (e.g., 80) for completed courses
+            # Verify if the user exists
+            if not HealthProviderUser.objects.filter(id=user_id).exists():
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Fetch grades where the score is >= 80 for completed courses
             completed_courses = Grade.objects.filter(
-                user_id=user_id, 
+                user_id=user_id,
                 score__gte=80
             ).values('course__id', 'course__title')
 
-            if not completed_courses:
+            # Check if any courses are found
+            if not completed_courses.exists():
                 return Response({"message": "No completed courses found."}, status=status.HTTP_404_NOT_FOUND)
 
-            return Response({"completed_courses": completed_courses}, status=status.HTTP_200_OK)
-        
-        except HealthProviderUser.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"completed_courses": list(completed_courses)}, status=status.HTTP_200_OK)
 
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 @api_view(['POST'])
 def complete_lesson(request, lesson_id, user_id):
     try:
@@ -1173,3 +1178,4 @@ def get_single_emergency(request, emergency_id):
         return Response({'error': 'Emergency course not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

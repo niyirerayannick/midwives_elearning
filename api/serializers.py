@@ -630,3 +630,25 @@ class EmergencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Emergency
         fields = ['id', 'title', 'description', 'created_at', 'files']
+
+class CompletedCourseSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title')  # Get course title
+    is_completed = serializers.SerializerMethodField()  # Determine completion status
+    completion_message = serializers.SerializerMethodField()  # Generate a message
+
+    class Meta:
+        model = Progress
+        fields = ['course_title', 'is_completed', 'completion_message']
+
+    def get_is_completed(self, obj):
+        # Check if the course is completed
+        return (
+            obj.completed_lessons.count() == obj.course.lesson_set.count()
+            and obj.completed_quizzes.count() == obj.course.quiz_set.count()
+        )
+
+    def get_completion_message(self, obj):
+        # Return a completion message based on the completion status
+        if self.get_is_completed(obj):
+            return f"Course '{obj.course.title}' is completed."
+        return f"Course '{obj.course.title}' is not completed yet."
