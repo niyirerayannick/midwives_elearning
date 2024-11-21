@@ -44,10 +44,10 @@ from .views import (
     UpdateListView,
     UserCertificateListView,
     UserEnrolledCoursesAPIView,
-    UserGradeListView,
     UserProfileView,
     VerifyOtpView,
     complete_lesson,
+    get_user_course_grade,
 )
 from api import views
 
@@ -73,8 +73,6 @@ urlpatterns = [
     path('courses/<int:course_id>/enroll/', CourseEnrollAPIView.as_view(), name='course-enroll'),
     path('courses/user/<int:user_id>/enrollments/', UserEnrolledCoursesAPIView.as_view(), name='user-enrolled-courses'),
     path('courses/<int:course_id>/courseprogress/mark-completed/', CourseProgressView.as_view(), name='courseprogress-mark-completed'),
-    # path('courses/grades/', UserGradeListView.as_view(), name='user-grades'),
-    path('courses/<int:user_id>/<int:course_id>/get_grades/', views.get_grades, name='get_grades'),
     path('courses/search/', CourseSearchView.as_view(), name='course-search'),
     path('courses/categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('courses/categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
@@ -83,6 +81,7 @@ urlpatterns = [
     path('courses/user/certificates/', CertificateListView.as_view(), name='certificate-list'),
     path('courses/completed-courses/<int:user_id>/', CompletedCoursesView.as_view(), name='completed-courses'),
     path('courses/in-progress-courses/<int:user_id>/', CoursesInProgressView.as_view(), name='in-progress-courses'),
+    path('courses/grades/<int:user_id>/<int:course_id>/', get_user_course_grade, name='user-course-grade'),
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),

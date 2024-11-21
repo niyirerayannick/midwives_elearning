@@ -1,4 +1,8 @@
 from django.utils import timezone
+
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from .models import Grade
 from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions, serializers
 from rest_framework.response import Response
@@ -462,46 +466,6 @@ class TakeQuizAPIView(generics.CreateAPIView):
         result = serializer.save()
 
         return Response(result, status=status.HTTP_201_CREATED)
-    
-class UserGradeListView(APIView):
-    queryset = Grade.objects.all()  # Define the queryset for grades
-
-    def post(self, request, *args, **kwargs):
-        serializer = GradeRequestSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        user_id = serializer.validated_data['user_id']
-        course_id = serializer.validated_data['course_id']
-
-        try:
-            user = User.objects.get(pk=user_id)
-            course = Course.objects.get(pk=course_id)
-
-            # Fetch quiz and exam grades for the specific course
-            grades = self.queryset.filter(user=user, course=course)
-
-            if not grades.exists():
-                return Response(
-                    {
-                        "message": "No grades found for this course.",
-                        "user_id": user_id,
-                        "course_id": course_id
-                    },
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            grade_serializer = GradeSerializer(grades, many=True)
-            return Response(grade_serializer.data, status=status.HTTP_200_OK)
-
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        except Course.DoesNotExist:
-            return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class NotificationView(GenericAPIView):
     # permission_classes = [permissions.IsAuthenticated]
@@ -1182,11 +1146,6 @@ def get_single_emergency(request, emergency_id):
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Progress, HealthProviderUser
-
 class CoursesInProgressView(APIView):
     def get(self, request, user_id, *args, **kwargs):
         try:
@@ -1220,3 +1179,29 @@ class CoursesInProgressView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def get_user_course_grade(request, user_id, course_id):
+    # Query the grade for the specific user and course
+    grades = Grade.objects.filter(user_id=user_id, course_id=course_id)
+
+    # If no grades are found, return a 404 response
+    if not grades.exists():
+        return JsonResponse({"error": "No grades found for the given user and course."}, status=404)
+
+    # Serialize the grades manually
+    grade_data = [
+        {
+            "user_id": grade.user.id,  # Use the user ID instead of the object
+            "user_name": str(grade.user), 
+            "course": grade.course.title,
+            "quiz": grade.quiz.title if grade.quiz else None,
+            "exam": grade.exam.title if grade.exam else None,
+            "score": float(grade.score),
+            "total_score": grade.total_score,
+            "percentage": round(grade.percentage, 2),
+        }
+        for grade in grades
+    ]
+
+    # Return the serialized data
+    return JsonResponse({"grades": grade_data}, safe=False)
