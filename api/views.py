@@ -1332,3 +1332,60 @@ def get_course_grades(request, course_id, user_id):
         return Response({
             'error': f'Failed to retrieve grades: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def mark_exam_completed(request, exam_id, user_id):
+    """
+    Mark exam as completed and save grade in grades table
+    """
+    try:
+        exam = Exam.objects.get(id=exam_id)
+        user = HealthProviderUser.objects.get(id=user_id)
+        course = exam.course
+
+        # Get user's answers for this exam
+        user_answers = ExamUserAnswer.objects.filter(user=user, exam=exam)
+        
+        # Calculate score
+        total_questions = user_answers.count()
+        correct_answers = user_answers.filter(is_correct=True).count()
+        score = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+        
+        # Create or update grade
+        grade, created = Grade.objects.update_or_create(
+            user=user,
+            course=course,
+            exam=exam,
+            defaults={
+                'score': score,
+                'total_score': 100,
+            }
+        )
+
+        # Mark exam as completed in progress tracking
+        progress, _ = UserExamProgress.objects.get_or_create(
+            user=user,
+            exam=exam,
+            defaults={'is_completed': True}
+        )
+        progress.is_completed = True
+        progress.save()
+
+        return Response({
+            'status': 'success',
+            'message': 'Exam marked as completed',
+            'grade': {
+                'score': score,
+                'total_score': 100,
+                'percentage': grade.percentage,
+                'passed': score >= 80
+            }
+        }, status=status.HTTP_200_OK)
+
+    except Exam.DoesNotExist:
+        return Response({'error': 'Exam not found'}, status=status.HTTP_404_NOT_FOUND)
+    except HealthProviderUser.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
