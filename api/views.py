@@ -432,6 +432,8 @@ class CourseProgressView(generics.UpdateAPIView):
         completed_items.add(item)
         return Response({'message': f'{model.__name__.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
 
+
+
 class TakeQuizAPIView(generics.CreateAPIView):
     serializer_class = TakeQuizSerializer
 
@@ -1259,3 +1261,63 @@ def get_courses_in_progress(request, user_id):
         return Response({'error': str(e)}, status=500)
 
 
+@api_view(['GET'])
+def get_course_grades(request, course_id, user_id):
+    """
+    Retrieve all quiz and exam grades for a specific user in a specific course.
+    """
+    try:
+        # Get quiz grades
+        quiz_grades = Grade.objects.filter(
+            user_id=user_id,
+            course_id=course_id,
+            quiz__isnull=False
+        ).select_related('quiz')
+
+        # Get exam grades
+        exam_grades = Grade.objects.filter(
+            user_id=user_id,
+            course_id=course_id,
+            exam__isnull=False
+        ).select_related('exam')
+
+        if not (quiz_grades.exists() or exam_grades.exists()):
+            return Response({
+                'message': 'No grades found for this user in this course'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Format the grades data
+        grades_data = []
+        
+        # Add quiz grades
+        for grade in quiz_grades:
+            grades_data.append({
+                'id': grade.id,
+                'score': float(grade.score),
+                'total_score': grade.total_score,
+                'percentage': grade.percentage,
+                'type': 'Quiz',
+                'assessment_title': grade.quiz.title
+            })
+
+        # Add exam grades
+        for grade in exam_grades:
+            grades_data.append({
+                'id': grade.id,
+                'score': float(grade.score),
+                'total_score': grade.total_score,
+                'percentage': grade.percentage,
+                'type': 'Exam',
+                'assessment_title': grade.exam.title
+            })
+
+        return Response({
+            'course_id': course_id,
+            'user_id': user_id,
+            'grades': grades_data
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': f'Failed to retrieve grades: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

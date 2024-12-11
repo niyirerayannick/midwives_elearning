@@ -82,6 +82,7 @@ urlpatterns = [
     path('courses/in-progress-courses/<int:user_id>/', CoursesInProgressView.as_view(), name='in-progress-courses'),
     # path('courses/<int:user_id>/grade/', views.get_user_grades, name='user-course-grade'),
     path('courses/grades/<int:user_id>/', GetUserGrades.as_view(), name='get_user_grades'),
+    path('courses/<int:course_id>/users/<int:user_id>/grades/', views.get_course_grades, name='user-course-grade'),
     path('courses/<int:course_id>/enrollments/', views.get_course_enrollments, name='course-enrollments'),
     # path('courses/users/<int:user_id>/in-progress-courses/', views.get_in_progress_courses, name='in-progress-courses'),
     path('courses/in-progress/<int:user_id>/', views.get_courses_in_progress, name='get-courses-in-progress'),
