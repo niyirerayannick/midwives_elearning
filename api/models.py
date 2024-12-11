@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import BaseUserManager
 
-
 class HealthProviderUserManager(BaseUserManager):
     def create_superuser(self, registration_number, password=None, **extra_fields):
         """
@@ -209,7 +208,7 @@ class Enrollment(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='enrollments', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='enrollments', on_delete=models.CASCADE)
     date_enrolled = models.DateField(auto_now_add=True)
-    completion_status = models.CharField(max_length=50, choices=[('in_progress', 'In Progress'), ('completed', 'Completed')])
+    completion_status = models.CharField(max_length=50,choices=[('in_progress', 'In Progress'), ('completed', 'Completed')],default='in_progress')
 
     def __str__(self):
         return f"{self.user.registration_number} enrolled in {self.course.title}"
@@ -262,6 +261,7 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.registration_number}"
+
 class Update(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
@@ -279,6 +279,7 @@ class Update(models.Model):
 
     def total_comments(self):
         return self.comments.count()
+    
 class Comment(models.Model):
     update = models.ForeignKey(Update, related_name='comments', on_delete=models.CASCADE)
     author = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
@@ -287,6 +288,7 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'Comment by {self.author} on {self.update}'
+    
 class Like(models.Model):
     update = models.ForeignKey(Update, related_name='likes', on_delete=models.CASCADE)
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
@@ -310,6 +312,7 @@ class ExamUserAnswer(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.exam.title} - Question: {self.question.text}"
+    
 class QuizUserAnswer(models.Model):
     user = models.ForeignKey('HealthProviderUser', on_delete=models.CASCADE)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
@@ -321,9 +324,7 @@ class QuizUserAnswer(models.Model):
         unique_together = ('user', 'quiz', 'question')
 
     def __str__(self):
-        return f"{self.user.username} - {self.quiz.title} - Question: {self.question.text}"
-
-
+        return f"{self.user.registration_number} - {self.quiz.title} - Question: {self.question.text}"
 # New model to track user progress on lessons, quizzes, and exams
 class UserLessonProgress(models.Model):
     user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
@@ -333,7 +334,6 @@ class UserLessonProgress(models.Model):
     def __str__(self):
         return f"{self.user.registration_number} - {self.lesson.title}"
 
-
 class UserQuizProgress(models.Model):
     user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE)
@@ -341,7 +341,6 @@ class UserQuizProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.registration_number} - {self.quiz.title}"
-
 
 class UserExamProgress(models.Model):
     user = models.ForeignKey(HealthProviderUser, on_delete=models.CASCADE)
@@ -358,7 +357,6 @@ class Emergency(models.Model):
 
     def __str__(self):
         return self.title
-
 
 class EmergencyFile(models.Model):
     emergency = models.ForeignKey(Emergency, related_name='files', on_delete=models.CASCADE)

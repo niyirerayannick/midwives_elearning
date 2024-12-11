@@ -83,11 +83,11 @@ urlpatterns = [
     # path('courses/<int:user_id>/grade/', views.get_user_grades, name='user-course-grade'),
     path('courses/grades/<int:user_id>/', GetUserGrades.as_view(), name='get_user_grades'),
     path('courses/<int:course_id>/enrollments/', views.get_course_enrollments, name='course-enrollments'),
-
+    # path('courses/users/<int:user_id>/in-progress-courses/', views.get_in_progress_courses, name='in-progress-courses'),
+    path('courses/in-progress/<int:user_id>/', views.get_courses_in_progress, name='get-courses-in-progress'),
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
-    path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),
-    
+    path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),    
      # Lesson-related endpoints
     path('courses/<int:course_id>/lessons/', LessonListView.as_view(), name='lesson-list'),
     path('lessons/create/', LessonCreateView.as_view(), name='lesson-create'),  # Added if needed
@@ -95,10 +95,7 @@ urlpatterns = [
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
     path('lessons/<int:lesson_id>/complete/<int:user_id>/', views.complete_lesson, name='complete_lesson'),
-
-
     path('notifications/', NotificationView.as_view(), name='notification-list'),
-
     # Quiz-related endpoints (uncomment if needed)
     path('quizzes/', QuizListView.as_view(), name='quiz-list'),  # List all quizzes
     path('quizzes/create/', QuizCreateView.as_view(), name='quiz-create'),  # Create a new quiz
@@ -119,22 +116,13 @@ urlpatterns = [
     path('exams/<int:exam_id>/retake_exam/<int:user_id>/', views.retake_exam, name='retake_exam'),
     path('exams/<int:exam_id>/submit/<int:user_id>/', views.submit_exam, name='submit_exam'),
     path('exams/<int:exam_id>/certificate/<int:user_id>/', views.get_user_certificate, name='get_user_certificate'),
-
-
     path('updates/', UpdateListView.as_view(), name='update-list'),               # List all updates or create a new one
     path('updates/<int:pk>/', UpdateDetailView.as_view(), name='update-detail'),  # Retrieve, update, or delete a specific update
     path('updates/<int:update_id>/comments/', CommentListCreateView.as_view(), name='comment_list_create'),  # List and create comments
     path('updates/<int:update_id>/comments/<int:pk>/', CommentRetrieveUpdateDestroyView.as_view(), name='comment_detail'),  # Retrieve, update, delete a comment
-
     # Like or unlike an update
     path('updates/<int:update_id>/like/', LikeUpdateView.as_view(), name='like_update'),
-
     # Existing paths for completing lessons, quizzes, and exams
-    
-    
-
-
-
     # New path for checking user progress in a course
     # path('yannick/course/<int:course_id>/progress/<int:user_id>/', views.get_course_progress, name='check_user_progress'),
     path('completing /course/<int:course_id>/progress/<int:user_id>/', views.get_user_course_progress, name='check_user_progress'),

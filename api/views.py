@@ -1206,3 +1206,30 @@ def get_course_enrollments(request, course_id):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
     
+@api_view(['GET'])
+def get_courses_in_progress(request, user_id):
+    """
+    Get all courses where the user is enrolled with status 'in_progress'.
+    """
+    try:
+        # Filter enrollments for the user with status 'in_progress'
+        enrollments_in_progress = Enrollment.objects.filter(user_id=user_id, completion_status='in_progress')
+        
+        # Get course details for each enrollment
+        courses_in_progress = []
+        for enrollment in enrollments_in_progress:
+            course = enrollment.course
+            courses_in_progress.append({
+                'course_id': course.id,
+                'course_title': course.title,
+                'course_description': course.description,
+            })
+
+        # Return the courses the user is enrolled in with 'in_progress' status
+        return Response({
+            'user_id': user_id,
+            'courses_in_progress': courses_in_progress
+        })
+
+    except Enrollment.DoesNotExist:
+        return Response({'error': 'No enrollments found for the user.'}, status=404)
