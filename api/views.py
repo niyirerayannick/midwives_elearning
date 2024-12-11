@@ -317,7 +317,6 @@ class AnswerUpdateView(UpdateAPIView):
 class AnswerDeleteView(DestroyAPIView):
     queryset = Answer.objects.all()
     serializer_class = AnswerSerializer
-User = get_user_model()
 
 class CourseEnrollAPIView(generics.CreateAPIView):
     queryset = Enrollment.objects.all()
@@ -386,7 +385,6 @@ class CompleteLessonAPIView(generics.UpdateAPIView):
             return Response({'error': 'Progress record not found'}, status=status.HTTP_404_NOT_FOUND)
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 class CourseProgressView(generics.UpdateAPIView):
     serializer_class = CourseProgressSerializer
@@ -484,17 +482,14 @@ class UpdateDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Update.objects.all()
     serializer_class = UpdateSerializer
 
-
 # ListCreateAPIView for listing all categories or creating a new one
 class CategoryListCreateView(generics.ListCreateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-
 # RetrieveUpdateDestroyAPIView for retrieving, updating, or deleting a specific category
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-
 # CRUD for Comments
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
@@ -629,6 +624,60 @@ class TakeExamAPIView(generics.CreateAPIView):
         return Response({"status": "success", "score": score, "total_score": total_marks}, status=status.HTTP_201_CREATED)
 from rest_framework.decorators import api_view
 
+class CoursesInProgressView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+            # Verify if the user exists
+            if not HealthProviderUser.objects.filter(id=user_id).exists():
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Fetch all progress records for the user
+            progress_records = Progress.objects.filter(user_id=user_id)
+
+            # Filter courses where not all lessons or quizzes are completed
+            in_progress_courses = []
+            for progress in progress_records:
+                total_lessons = progress.course.lessons.count()
+                total_quizzes = progress.course.quizzes.count()
+
+                if (
+                    progress.completed_lessons.count() < total_lessons or
+                    progress.completed_quizzes.count() < total_quizzes
+                ):
+                    in_progress_courses.append({
+                        "course_id": progress.course.id,
+                        "course_title": progress.course.title
+                    })
+
+            # Check if there are any courses in progress
+            if not in_progress_courses:
+                return Response({"message": "No courses in progress."}, status=status.HTTP_404_NOT_FOUND)
+
+            return Response({"in_progress_courses": in_progress_courses}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GetUserGrades(APIView):
+    def get(self, request, user_id):
+        grades = Grade.objects.filter(user_id=user_id)
+
+        if not grades.exists():
+            raise NotFound("No grades found for this user.")
+
+        grades_data = [
+            {
+                "course": grade.course.title,
+                "quiz": grade.quiz.title if grade.quiz else None,
+                "exam": grade.exam.title if grade.exam else None,
+                "score": float(grade.score),
+                "total_score": grade.total_score,
+                "percentage": grade.percentage
+            }
+            for grade in grades
+        ]
+        return Response({"grades": grades_data})
+ 
 @api_view(['GET'])
 def get_quiz_by_course(request, course_id):
     try:
@@ -649,7 +698,6 @@ def get_exam_by_course(request, course_id):
     
     serializer = ExamSerializer(exams, many=True)
     return Response(serializer.data, status=200)
-
 
 
 class SendOtpForPasswordResetView(APIView):
@@ -673,7 +721,6 @@ class VerifyOtpView(APIView):
         if serializer.is_valid():
             return Response({"message": "OTP is valid. Proceed to set a new password."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class PasswordResetConfirmView(APIView):
     """
@@ -1023,7 +1070,6 @@ def submit_exam(request, exam_id, user_id):
         # Catch unexpected errors and log for further debugging
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(['GET'])
 def get_grades(request, user_id, course_id):
     """
@@ -1094,6 +1140,7 @@ def get_user_certificate(request, exam_id, user_id):
                     'course': {
                         'title': course.title,
                         'description': course.description,
+                        'cpd': course.cpd,
                     },
                     'issued_date': certificate.issued_date,
                     'score_percentage': round(score_percentage, 2)
@@ -1111,7 +1158,8 @@ def get_user_certificate(request, exam_id, user_id):
         return Response({'error': 'Exam or User not found'}, status=404)
     except Course.DoesNotExist:
         return Response({'error': 'Course not found'}, status=404)
-    
+
+
 @api_view(['GET'])
 def get_emergency_courses(request):
     """
@@ -1144,64 +1192,17 @@ def get_single_emergency(request, emergency_id):
         return Response({'error': 'Emergency course not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+       
+@api_view(['GET'])
+def get_course_enrollments(request, course_id):
+    try:
+        # Fetch enrollments for the given course
+        enrollments = Enrollment.objects.filter(course_id=course_id)
+        if not enrollments.exists():
+            return Response({'message': 'No enrollments found for this course.'}, status=404)
+        
+        serializer = EnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
     
-
-class CoursesInProgressView(APIView):
-    def get(self, request, user_id, *args, **kwargs):
-        try:
-            # Verify if the user exists
-            if not HealthProviderUser.objects.filter(id=user_id).exists():
-                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-            # Fetch all progress records for the user
-            progress_records = Progress.objects.filter(user_id=user_id)
-
-            # Filter courses where not all lessons or quizzes are completed
-            in_progress_courses = []
-            for progress in progress_records:
-                total_lessons = progress.course.lessons.count()
-                total_quizzes = progress.course.quizzes.count()
-
-                if (
-                    progress.completed_lessons.count() < total_lessons or
-                    progress.completed_quizzes.count() < total_quizzes
-                ):
-                    in_progress_courses.append({
-                        "course_id": progress.course.id,
-                        "course_title": progress.course.title
-                    })
-
-            # Check if there are any courses in progress
-            if not in_progress_courses:
-                return Response({"message": "No courses in progress."}, status=status.HTTP_404_NOT_FOUND)
-
-            return Response({"in_progress_courses": in_progress_courses}, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-def get_user_course_grade(request, user_id, course_id):
-    # Query the grade for the specific user and course
-    grades = Grade.objects.filter(user_id=user_id, course_id=course_id)
-
-    # If no grades are found, return a 404 response
-    if not grades.exists():
-        return JsonResponse({"error": "No grades found for the given user and course."}, status=404)
-
-    # Serialize the grades manually
-    grade_data = [
-        {
-            "user_id": grade.user.id,  # Use the user ID instead of the object
-            "user_name": str(grade.user), 
-            "course": grade.course.title,
-            "quiz": grade.quiz.title if grade.quiz else None,
-            "exam": grade.exam.title if grade.exam else None,
-            "score": float(grade.score),
-            "total_score": grade.total_score,
-            "percentage": round(grade.percentage, 2),
-        }
-        for grade in grades
-    ]
-
-    # Return the serialized data
-    return JsonResponse({"grades": grade_data}, safe=False)

@@ -608,9 +608,9 @@ class ExamUserSerializer(serializers.ModelSerializer):
 
 
 class CertificateSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
-    course = CourseSerializer()
-    exam = ExamSerializer(allow_null=True)  # If the exam is optional, allow null
+    user = UserSerializer(read_only=True)
+    course = CourseSerializer(read_only=True)
+    exam = ExamSerializer(read_only=True, allow_null=True)  # Allow null for optional exams
 
     class Meta:
         model = Certificate

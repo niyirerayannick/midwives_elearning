@@ -18,6 +18,7 @@ from .views import (
     CoursesInProgressView,
     ExamListCreateView,
     ExamRetrieveUpdateDeleteView,
+    GetUserGrades,
     LessonDetailView,
     LikeUpdateView,
     PasswordResetConfirmView,
@@ -46,8 +47,6 @@ from .views import (
     UserEnrolledCoursesAPIView,
     UserProfileView,
     VerifyOtpView,
-    complete_lesson,
-    get_user_course_grade,
 )
 from api import views
 
@@ -81,7 +80,10 @@ urlpatterns = [
     path('courses/user/certificates/', CertificateListView.as_view(), name='certificate-list'),
     path('courses/completed-courses/<int:user_id>/', CompletedCoursesView.as_view(), name='completed-courses'),
     path('courses/in-progress-courses/<int:user_id>/', CoursesInProgressView.as_view(), name='in-progress-courses'),
-    path('courses/grades/<int:user_id>/<int:course_id>/', get_user_course_grade, name='user-course-grade'),
+    # path('courses/<int:user_id>/grade/', views.get_user_grades, name='user-course-grade'),
+    path('courses/grades/<int:user_id>/', GetUserGrades.as_view(), name='get_user_grades'),
+    path('courses/<int:course_id>/enrollments/', views.get_course_enrollments, name='course-enrollments'),
+
     # CRUD for Skills
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),
@@ -92,7 +94,7 @@ urlpatterns = [
     path('lessons/<int:id>/', LessonDetailView.as_view(), name='lesson-detail'),
     path('lessons/<int:pk>/update/', LessonUpdateView.as_view(), name='lesson-update'),  # Added if needed
     path('lessons/<int:pk>/delete/', LessonDeleteView.as_view(), name='lesson-delete'),  # Added if needed
-    path('lessons/<int:lesson_id>/complete/<int:user_id>/', complete_lesson, name='complete_lesson'),
+    path('lessons/<int:lesson_id>/complete/<int:user_id>/', views.complete_lesson, name='complete_lesson'),
 
 
     path('notifications/', NotificationView.as_view(), name='notification-list'),
