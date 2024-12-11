@@ -219,25 +219,32 @@ class Enrollment(models.Model):
         if progress and progress.completed_lessons.count() == self.course.lesson_set.count() and progress.completed_quizzes.count() == self.course.quiz_set.count():
             self.completion_status = 'completed'
             self.save()
-
 class Progress(models.Model):
     user = models.ForeignKey(HealthProviderUser, related_name='progress', on_delete=models.CASCADE)
     course = models.ForeignKey(Course, related_name='progress', on_delete=models.CASCADE)
     completed_lessons = models.ManyToManyField(Lesson, related_name='progressed_lessons', blank=True)
     completed_quizzes = models.ManyToManyField(Quiz, related_name='progressed_quizzes', blank=True)
-    total_lessons = models.IntegerField()
+    completed_exams = models.ManyToManyField(Exam, related_name='progressed_exams', blank=True)
+    total_lessons = models.IntegerField()  # Total number of lessons in the course
 
     def __str__(self):
         return f"{self.user.registration_number}'s progress in {self.course.title}"
 
     def update_progress(self, item_type, item_id):
+        """
+        Update the progress based on the item type (lesson, quiz, exam).
+        """
         if item_type == 'lesson':
             lesson = Lesson.objects.get(id=item_id)
             self.completed_lessons.add(lesson)  # Add lesson to the many-to-many relationship
         elif item_type == 'quiz':
             quiz = Quiz.objects.get(id=item_id)
             self.completed_quizzes.add(quiz)  # Add quiz to the many-to-many relationship
+        elif item_type == 'exam':
+            exam = Exam.objects.get(id=item_id)
+            self.completed_exams.add(exam)  # Add exam to the many-to-many relationship
         self.save()
+
         # Update enrollment completion status after progress update
         enrollment = Enrollment.objects.filter(user=self.user, course=self.course).first()
         if enrollment:
@@ -245,12 +252,25 @@ class Progress(models.Model):
 
     def mark_as_complete(self):
         """
-        Mark course as complete if the user has completed all lessons and quizzes
+        Mark course as complete if the user has completed all lessons, quizzes, and exams.
         """
-        if self.completed_lessons.count() == self.course.lesson_set.count() and self.completed_quizzes.count() == self.course.quiz_set.count():
+        if (self.completed_lessons.count() == self.course.lesson_set.count() and
+            self.completed_quizzes.count() == self.course.quiz_set.count() and
+            self.completed_exams.count() == self.course.exam_set.count()):  # Check if all exams are completed
             enrollment = Enrollment.objects.get(user=self.user, course=self.course)
             enrollment.completion_status = 'completed'
             enrollment.save()
+
+    def get_completion_percentage(self):
+        """
+        Calculate the completion percentage based on lessons, quizzes, and exams.
+        """
+        total_items = self.course.lesson_set.count() + self.course.quiz_set.count() + self.course.exam_set.count()
+        completed_items = self.completed_lessons.count() + self.completed_quizzes.count() + self.completed_exams.count()
+        
+        if total_items == 0:  # Prevent division by zero if there are no lessons, quizzes, or exams
+            return 0
+        return (completed_items / total_items) * 100
 
 # Notification Model
 class Notification(models.Model):

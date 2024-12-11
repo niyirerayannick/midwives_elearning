@@ -141,14 +141,16 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         enrollment = Enrollment.objects.create(user=user, course=course)
         return enrollment
    
+
+
 class CourseProgressSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)  # User ID to mark progress
-    type = serializers.ChoiceField(choices=['lesson', 'quiz'], required=True)  # Type of item
-    item_id = serializers.IntegerField(required=True)  # ID of the lesson or quiz to mark as completed
+    type = serializers.ChoiceField(choices=['lesson', 'quiz', 'exam'], required=True)  # Type of item
+    item_id = serializers.IntegerField(required=True)  # ID of the item (lesson, quiz, or exam)
 
     def validate(self, data):
         """
-        Ensure that the lesson or quiz exists before marking it as completed.
+        Ensure that the lesson, quiz, or exam exists before marking it as completed.
         """
         item_type = data.get('type')
         item_id = data.get('item_id')
@@ -159,14 +161,17 @@ class CourseProgressSerializer(serializers.Serializer):
         elif item_type == 'quiz':
             if not Quiz.objects.filter(id=item_id).exists():
                 raise serializers.ValidationError("Quiz does not exist.")
-
+        elif item_type == 'exam':
+            if not Exam.objects.filter(id=item_id).exists():
+                raise serializers.ValidationError("Exam does not exist.")
+        
         return data
 
     def create(self, validated_data):
         """
         This method is not used, but you can define it if needed for future enhancements.
         """
-        pass  # If you need to implement any logic for creating progress, add it here.
+        pass
 
     def update(self, instance, validated_data):
         """
@@ -176,8 +181,10 @@ class CourseProgressSerializer(serializers.Serializer):
         item_id = validated_data.get('item_id')
 
         # Update progress for the specified user and course
-        instance.update_progress(item_type, item_id)  # Call the update_progress method from the model
+        instance.update_progress(item_type, item_id)  # Ensure `update_progress` is implemented in the model
         return instance
+
+    
 class ProgressSerializer(serializers.ModelSerializer):
     # Nested serializers for related fields
     user = serializers.PrimaryKeyRelatedField(queryset=HealthProviderUser.objects.all())

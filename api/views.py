@@ -395,42 +395,42 @@ class CourseProgressView(generics.UpdateAPIView):
 
         user_id = serializer.validated_data['user_id']
         course_id = kwargs['course_id']
+        item_type = serializer.validated_data['type']
+        item_id = serializer.validated_data['item_id']
 
-        # Check if the user has progress for the course
-        progress, created = Progress.objects.get_or_create(
+        # Fetch or create progress for the user and course
+        progress, _ = Progress.objects.get_or_create(
             user_id=user_id,
             course_id=course_id,
             defaults={'total_lessons': Lesson.objects.filter(course_id=course_id).count()}
         )
 
-        item_type = serializer.validated_data['type']
-        item_id = serializer.validated_data['item_id']
-
-        # Check item existence based on type
+        # Handle item completion logic
         if item_type == 'lesson':
-            lesson = get_object_or_404(Lesson, id=item_id, course_id=course_id)
-
-            # Check if the lesson is already marked as completed
-            if progress.completed_lessons.filter(id=lesson.id).exists():
-                return Response({'message': 'You have already completed this lesson!'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Mark lesson as completed in progress
-            progress.completed_lessons.add(lesson)
-
+            response = self._mark_as_completed(progress, Lesson, item_id, course_id, 'completed_lessons')
         elif item_type == 'quiz':
-            quiz = get_object_or_404(Quiz, id=item_id, course_id=course_id)
-
-            # Check if the quiz is already marked as completed
-            if progress.completed_quizzes.filter(id=quiz.id).exists():
-                return Response({'message': 'You have already completed this quiz!'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Mark quiz as completed in progress
-            progress.completed_quizzes.add(quiz)
-
+            response = self._mark_as_completed(progress, Quiz, item_id, course_id, 'completed_quizzes')
+        elif item_type == 'exam':
+            response = self._mark_as_completed(progress, Exam, item_id, course_id, 'completed_exams')
         else:
             return Response({'error': 'Invalid item type'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'message': f'{item_type.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
+        return response
+
+    def _mark_as_completed(self, progress, model, item_id, course_id, completed_field):
+        """
+        Mark the item (lesson, quiz, or exam) as completed for the user's progress.
+        """
+        item = get_object_or_404(model, id=item_id, course_id=course_id)
+
+        # Check if the item is already marked as completed
+        completed_items = getattr(progress, completed_field)
+        if completed_items.filter(id=item.id).exists():
+            return Response({'message': f'You have already completed this {model.__name__.lower()}!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mark item as completed
+        completed_items.add(item)
+        return Response({'message': f'{model.__name__.capitalize()} marked as completed!'}, status=status.HTTP_200_OK)
 
 class TakeQuizAPIView(generics.CreateAPIView):
     serializer_class = TakeQuizSerializer
@@ -819,20 +819,34 @@ class CompletedCoursesView(APIView):
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
             # Fetch grades where the score is >= 80 for completed courses
+            
             completed_courses = Grade.objects.filter(
                 user_id=user_id,
                 score__gte=80
-            ).values('course__id', 'course__title')
+            ).values(
+                'course__id',
+                'course__title',
+                'course__description',
+                'course__course_image', 
+                'course__category', 
+                'course__instructor__id',        # Include instructor ID
+                'course__instructor__first_name', # Include instructor first name
+                'course__instructor__last_name'  # Make sure these fields exist in the related Course model
+            )
 
             # Check if any courses are found
             if not completed_courses.exists():
                 return Response({"message": "No completed courses found."}, status=status.HTTP_404_NOT_FOUND)
 
+            # Convert the QuerySet to a list and return the response
             return Response({"completed_courses": list(completed_courses)}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+
+
+
 @api_view(['POST'])
 def complete_lesson(request, lesson_id, user_id):
     try:
@@ -1219,10 +1233,18 @@ def get_courses_in_progress(request, user_id):
         courses_in_progress = []
         for enrollment in enrollments_in_progress:
             course = enrollment.course
+            instructor = course.instructor
             courses_in_progress.append({
                 'course_id': course.id,
                 'course_title': course.title,
                 'course_description': course.description,
+                'course_image': course.course_image.url if course.course_image else None,  # Handle missing image
+                'instructor': {
+                    'id': instructor.id,
+                    'first_name': instructor.first_name,
+                    'last_name': instructor.last_name,
+                    'email': instructor.email,  # Add more fields if necessary
+                },
             })
 
         # Return the courses the user is enrolled in with 'in_progress' status
@@ -1233,3 +1255,7 @@ def get_courses_in_progress(request, user_id):
 
     except Enrollment.DoesNotExist:
         return Response({'error': 'No enrollments found for the user.'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+

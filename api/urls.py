@@ -85,7 +85,8 @@ urlpatterns = [
     path('courses/<int:course_id>/enrollments/', views.get_course_enrollments, name='course-enrollments'),
     # path('courses/users/<int:user_id>/in-progress-courses/', views.get_in_progress_courses, name='in-progress-courses'),
     path('courses/in-progress/<int:user_id>/', views.get_courses_in_progress, name='get-courses-in-progress'),
-    # CRUD for Skills
+    # path('courses/completed/<int:user_id>/', views.get_courses_completed, name='get_courses_completed'),
+    # CRUD for Skillscompleted-courses
     path('skills/', SkillListCreateView.as_view(), name='skill_list_create'),
     path('skills/<int:pk>/', SkillRetrieveUpdateDestroyView.as_view(), name='skill_detail'),    
      # Lesson-related endpoints
