@@ -624,8 +624,8 @@ class TakeExamAPIView(generics.CreateAPIView):
         )
 
         return Response({"status": "success", "score": score, "total_score": total_marks}, status=status.HTTP_201_CREATED)
-from rest_framework.decorators import api_view
 
+from rest_framework.decorators import api_view
 class CoursesInProgressView(APIView):
     def get(self, request, user_id, *args, **kwargs):
         try:
@@ -639,16 +639,27 @@ class CoursesInProgressView(APIView):
             # Filter courses where not all lessons or quizzes are completed
             in_progress_courses = []
             for progress in progress_records:
-                total_lessons = progress.course.lessons.count()
-                total_quizzes = progress.course.quizzes.count()
+                course = progress.course  # Move inside the loop to access the correct course
+                instructor = course.instructor
+
+                total_lessons = course.lessons.count()
+                total_quizzes = course.quizzes.count()
 
                 if (
                     progress.completed_lessons.count() < total_lessons or
                     progress.completed_quizzes.count() < total_quizzes
                 ):
                     in_progress_courses.append({
-                        "course_id": progress.course.id,
-                        "course_title": progress.course.title
+                        'course_id': course.id,
+                        'course_title': course.title,
+                        'course_description': course.description,
+                        'course_image': course.course_image.url if course.course_image else None,  # Handle missing image
+                        'instructor': {
+                            'id': instructor.id,
+                            'first_name': instructor.first_name,
+                            'last_name': instructor.last_name,
+                            'email': instructor.email,  # Add more fields if necessary
+                        },
                     })
 
             # Check if there are any courses in progress
