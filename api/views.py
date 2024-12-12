@@ -1240,38 +1240,38 @@ def get_courses_in_progress(request, user_id):
     Get all courses where the user is enrolled with status 'in_progress'.
     """
     try:
-        # Filter enrollments for the user with status 'in_progress'
-        enrollments_in_progress = Enrollment.objects.filter(user_id=user_id, completion_status='in_progress')
-        
-        # Get course details for each enrollment
-        courses_in_progress = []
-        for enrollment in enrollments_in_progress:
-            course = enrollment.course
-            instructor = course.instructor
-            courses_in_progress.append({
-                'course_id': course.id,
-                'course_title': course.title,
-                'course_description': course.description,
-                'course_image': course.course_image.url if course.course_image else None,  # Handle missing image
-                'instructor': {
-                    'id': instructor.id,
-                    'first_name': instructor.first_name,
-                    'last_name': instructor.last_name,
-                    'email': instructor.email,  # Add more fields if necessary
-                },
-            })
+        # Filter enrollments and use values() to get unique courses
+        enrollments_in_progress = Enrollment.objects.filter(
+            user_id=user_id, 
+            completion_status='in_progress'
+        ).select_related('course', 'course__instructor')
 
-        # Return the courses the user is enrolled in with 'in_progress' status
+        # Use dictionary comprehension to ensure unique courses
+        unique_courses = {
+            enrollment.course.id: {
+                'course_id': enrollment.course.id,
+                'course_title': enrollment.course.title,
+                'course_description': enrollment.course.description,
+                'course_image': enrollment.course.course_image.url if enrollment.course.course_image else None,
+                'instructor': {
+                    'id': enrollment.course.instructor.id,
+                    'first_name': enrollment.course.instructor.first_name,
+                    'last_name': enrollment.course.instructor.last_name,
+                    'email': enrollment.course.instructor.email,
+                },
+            }
+            for enrollment in enrollments_in_progress
+        }
+
         return Response({
             'user_id': user_id,
-            'courses_in_progress': courses_in_progress
+            'courses_in_progress': list(unique_courses.values())
         })
 
     except Enrollment.DoesNotExist:
         return Response({'error': 'No enrollments found for the user.'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-
 
 @api_view(['GET'])
 def get_course_grades(request, course_id, user_id):
