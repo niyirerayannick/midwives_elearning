@@ -824,40 +824,40 @@ class UserCertificateListView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class CompletedCoursesView(APIView):
-    def get(self, request, user_id, *args, **kwargs):
-        try:
-            if not HealthProviderUser.objects.filter(id=user_id).exists():
-                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+# class CompletedCoursesView(APIView):
+#     def get(self, request, user_id, *args, **kwargs):
+#         try:
+#             if not HealthProviderUser.objects.filter(id=user_id).exists():
+#                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Get unique courses using values() and distinct()
-            completed_courses = Grade.objects.filter(
-                user_id=user_id,
-                score__gte=80
-            ).values(
-                'course__id',
-                'course__title',
-                'course__description',
-                'course__course_image', 
-                'course__category', 
-                'course__instructor__id',
-                'course__instructor__first_name',
-                'course__instructor__last_name'
-            ).order_by('course__id').distinct()
+#             # Get unique courses using values() and distinct()
+#             completed_courses = Grade.objects.filter(
+#                 user_id=user_id,
+#                 score__gte=80
+#             ).values(
+#                 'course__id',
+#                 'course__title',
+#                 'course__description',
+#                 'course__course_image', 
+#                 'course__category', 
+#                 'course__instructor__id',
+#                 'course__instructor__first_name',
+#                 'course__instructor__last_name'
+#             ).order_by('course__id').distinct()
 
-            # Convert QuerySet to list and remove duplicates based on course ID
-            unique_courses = {
-                course['course__id']: course 
-                for course in completed_courses
-            }.values()
+#             # Convert QuerySet to list and remove duplicates based on course ID
+#             unique_courses = {
+#                 course['course__id']: course 
+#                 for course in completed_courses
+#             }.values()
 
-            if not unique_courses:
-                return Response({"message": "No completed courses found."}, status=status.HTTP_404_NOT_FOUND)
+#             if not unique_courses:
+#                 return Response({"message": "No completed courses found."}, status=status.HTTP_404_NOT_FOUND)
 
-            return Response({"completed_courses": list(unique_courses)}, status=status.HTTP_200_OK)
+#             return Response({"completed_courses": list(unique_courses)}, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -1234,44 +1234,44 @@ def get_course_enrollments(request, course_id):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
     
-@api_view(['GET'])
-def get_courses_in_progress(request, user_id):
-    """
-    Get all courses where the user is enrolled with status 'in_progress'.
-    """
-    try:
-        # Filter enrollments and use values() to get unique courses
-        enrollments_in_progress = Enrollment.objects.filter(
-            user_id=user_id, 
-            completion_status='in_progress'
-        ).select_related('course', 'course__instructor')
+# @api_view(['GET'])
+# def get_courses_in_progress(request, user_id):
+#     """
+#     Get all courses where the user is enrolled with status 'in_progress'.
+#     """
+#     try:
+#         # Filter enrollments and use values() to get unique courses
+#         enrollments_in_progress = Enrollment.objects.filter(
+#             user_id=user_id, 
+#             completion_status='in_progress'
+#         ).select_related('course', 'course__instructor')
 
-        # Use dictionary comprehension to ensure unique courses
-        unique_courses = {
-            enrollment.course.id: {
-                'course_id': enrollment.course.id,
-                'course_title': enrollment.course.title,
-                'course_description': enrollment.course.description,
-                'course_image': enrollment.course.course_image.url if enrollment.course.course_image else None,
-                'instructor': {
-                    'id': enrollment.course.instructor.id,
-                    'first_name': enrollment.course.instructor.first_name,
-                    'last_name': enrollment.course.instructor.last_name,
-                    'email': enrollment.course.instructor.email,
-                },
-            }
-            for enrollment in enrollments_in_progress
-        }
+#         # Use dictionary comprehension to ensure unique courses
+#         unique_courses = {
+#             enrollment.course.id: {
+#                 'course_id': enrollment.course.id,
+#                 'course_title': enrollment.course.title,
+#                 'course_description': enrollment.course.description,
+#                 'course_image': enrollment.course.course_image.url if enrollment.course.course_image else None,
+#                 'instructor': {
+#                     'id': enrollment.course.instructor.id,
+#                     'first_name': enrollment.course.instructor.first_name,
+#                     'last_name': enrollment.course.instructor.last_name,
+#                     'email': enrollment.course.instructor.email,
+#                 },
+#             }
+#             for enrollment in enrollments_in_progress
+#         }
 
-        return Response({
-            'user_id': user_id,
-            'courses_in_progress': list(unique_courses.values())
-        })
+#         return Response({
+#             'user_id': user_id,
+#             'courses_in_progress': list(unique_courses.values())
+#         })
 
-    except Enrollment.DoesNotExist:
-        return Response({'error': 'No enrollments found for the user.'}, status=404)
-    except Exception as e:
-        return Response({'error': str(e)}, status=500)
+#     except Enrollment.DoesNotExist:
+#         return Response({'error': 'No enrollments found for the user.'}, status=404)
+#     except Exception as e:
+#         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
 def get_course_grades(request, course_id, user_id):
@@ -1390,3 +1390,86 @@ def mark_exam_completed(request, exam_id, user_id):
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CompletedCoursesView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+            if not HealthProviderUser.objects.filter(id=user_id).exists():
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            completed_courses = Grade.objects.filter(
+                user_id=user_id,
+                score__gte=80
+            ).values(
+                'course__id',
+                'course__title',
+                'course__description',
+                'course__course_image', 
+                'course__category', 
+                'course__instructor__id',
+                'course__instructor__first_name',
+                'course__instructor__last_name'
+            ).distinct()
+
+            unique_courses = {
+                course['course__id']: {
+                    'course_id': course['course__id'],
+                    'course_title': course['course__title'],
+                    'course_description': course['course__description'],
+                    'course_image': course['course__course_image'],
+                    'category': course['course__category'],
+                    'instructor': {
+                        'id': course['course__instructor__id'],
+                        'first_name': course['course__instructor__first_name'],
+                        'last_name': course['course__instructor__last_name']
+                    }
+                } 
+                for course in completed_courses
+            }.values()
+
+            return Response({"completed_courses": list(unique_courses)}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def get_courses_in_progress(request, user_id):
+    try:
+        # Get completed course IDs
+        completed_course_ids = Grade.objects.filter(
+            user_id=user_id, 
+            score__gte=80
+        ).values_list('course_id', flat=True).distinct()
+
+        # Filter enrollments excluding completed courses
+        enrollments_in_progress = Enrollment.objects.filter(
+            user_id=user_id, 
+            completion_status='in_progress'
+        ).exclude(
+            course_id__in=completed_course_ids
+        ).select_related('course', 'course__instructor')
+
+        unique_courses = {
+            enrollment.course.id: {
+                'course_id': enrollment.course.id,
+                'course_title': enrollment.course.title,
+                'course_description': enrollment.course.description,
+                'course_image': enrollment.course.course_image.url if enrollment.course.course_image else None,
+                'instructor': {
+                    'id': enrollment.course.instructor.id,
+                    'first_name': enrollment.course.instructor.first_name,
+                    'last_name': enrollment.course.instructor.last_name,
+                    'email': enrollment.course.instructor.email,
+                },
+            }
+            for enrollment in enrollments_in_progress
+        }
+
+        return Response({
+            'user_id': user_id,
+            'courses_in_progress': list(unique_courses.values())
+        })
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
