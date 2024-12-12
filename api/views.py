@@ -827,12 +827,10 @@ class UserCertificateListView(APIView):
 class CompletedCoursesView(APIView):
     def get(self, request, user_id, *args, **kwargs):
         try:
-            # Verify if the user exists
             if not HealthProviderUser.objects.filter(id=user_id).exists():
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Fetch grades where the score is >= 80 for completed courses
-            
+            # Get unique courses using values() and distinct()
             completed_courses = Grade.objects.filter(
                 user_id=user_id,
                 score__gte=80
@@ -842,21 +840,24 @@ class CompletedCoursesView(APIView):
                 'course__description',
                 'course__course_image', 
                 'course__category', 
-                'course__instructor__id',        # Include instructor ID
-                'course__instructor__first_name', # Include instructor first name
-                'course__instructor__last_name'  # Make sure these fields exist in the related Course model
-            )
+                'course__instructor__id',
+                'course__instructor__first_name',
+                'course__instructor__last_name'
+            ).order_by('course__id').distinct()
 
-            # Check if any courses are found
-            if not completed_courses.exists():
+            # Convert QuerySet to list and remove duplicates based on course ID
+            unique_courses = {
+                course['course__id']: course 
+                for course in completed_courses
+            }.values()
+
+            if not unique_courses:
                 return Response({"message": "No completed courses found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Convert the QuerySet to a list and return the response
-            return Response({"completed_courses": list(completed_courses)}, status=status.HTTP_200_OK)
+            return Response({"completed_courses": list(unique_courses)}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 
